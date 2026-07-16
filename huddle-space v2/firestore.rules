@@ -1,0 +1,13 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // NOTE: This app has no login/auth system — it's "private" only in the
+    // sense that people need the unlisted URL. Anyone who has your Firebase
+    // config (visible in the deployed JS bundle) can technically read/write
+    // this data. That's an acceptable tradeoff for a trusted ~50 person
+    // group, but don't use this pattern for anything sensitive.
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}

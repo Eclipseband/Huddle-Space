@@ -5,5 +5,5 @@ import react from "@vitejs/plugin-react";
 // e.g. if your repo is github.com/you/huddle-space, base should be "/huddle-space/"
 export default defineConfig({
   plugins: [react()],
-  base: "/",
+  base: "/Huddle-Space/",
 });

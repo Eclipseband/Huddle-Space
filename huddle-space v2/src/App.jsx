@@ -173,8 +173,8 @@ export default function App() {
     if (!name) return;
     const newProfile = { name };
     localStorage.setItem(PROFILE_KEY, JSON.stringify(newProfile));
-    await setDoc(doc(db, "members", name), { joinedAt: Date.now() });
     setProfile(newProfile);
+    setDoc(doc(db, "members", name), { joinedAt: Date.now() });
   }
 
   async function handleFileSelect(e) {

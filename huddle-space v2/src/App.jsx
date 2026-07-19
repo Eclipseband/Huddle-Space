@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Heart, MessageCircle, Image as ImageIcon, Send, Users, X, Smile, Mail, ArrowLeft } from "lucide-react";
-import { db, storage } from "./firebase";
+import { db } from "./firebase";
 import {
   collection,
   doc,
@@ -15,7 +15,7 @@ import {
   arrayUnion,
   arrayRemove,
 } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+
 
 const AVATAR_COLORS = ["#A65D56", "#C98C82", "#8A7E72", "#B08968", "#6E7B6B", "#9C6644"];
 const REACTIONS = ["❤️", "😂", "👍", "😮", "😢"];
@@ -27,7 +27,7 @@ function colorFor(name) {
   return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length];
 }
 
-function compressImageFile(file, maxDim = 1000, quality = 0.75) {
+function compressImageFile(file, maxDim = 800, quality = 0.6) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onerror = () => reject(new Error("Could not read file"));
@@ -50,7 +50,7 @@ function compressImageFile(file, maxDim = 1000, quality = 0.75) {
         canvas.height = height;
         const ctx = canvas.getContext("2d");
         ctx.drawImage(img, 0, 0, width, height);
-        canvas.toBlob((blob) => resolve(blob), "image/jpeg", quality);
+        resolve(canvas.toDataURL("image/jpeg", quality));
       };
       img.src = reader.result;
     };
@@ -198,8 +198,12 @@ export default function App() {
     setImageError("");
     setImageProcessing(true);
     try {
-      const blob = await compressImageFile(file);
-      setComposeImage({ blob, previewUrl: URL.createObjectURL(blob) });
+      const dataUrl = await compressImageFile(file);
+      if (dataUrl.length > 700 * 1024) {
+        setImageError("That photo is too large even after compressing. Try a smaller one.");
+      } else {
+        setComposeImage(dataUrl);
+      }
     } catch {
       setImageError("Couldn't process that photo. Try a different file.");
     } finally {
@@ -212,17 +216,10 @@ export default function App() {
     if (!text) return;
     setPosting(true);
     try {
-      let imageUrl = null;
-      if (composeImage) {
-        const filename = `images/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
-        const storageRef = ref(storage, filename);
-        await uploadBytes(storageRef, composeImage.blob);
-        imageUrl = await getDownloadURL(storageRef);
-      }
       await addDoc(collection(db, "posts"), {
         author: profile.name,
         text,
-        imageUrl,
+        imageUrl: composeImage || null,
         timestamp: serverTimestamp(),
         reactions: {},
         comments: [],
@@ -463,7 +460,7 @@ export default function App() {
             />
             {composeImage && (
               <div style={{ position: "relative", marginTop: 8, display: "inline-block" }}>
-                <img src={composeImage.previewUrl} alt="Selected" style={{ maxWidth: "100%", maxHeight: 220, borderRadius: 10, display: "block" }} />
+                <img src={composeImage} alt="Selected" style={{ maxWidth: "100%", maxHeight: 220, borderRadius: 10, display: "block" }} />
                 <button
                   onClick={() => setComposeImage(null)}
                   style={{

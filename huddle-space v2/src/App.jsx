@@ -123,6 +123,9 @@ export default function App() {
   const [feedFilter, setFeedFilter] = useState("all");
   const [notifications, setNotifications] = useState([]);
   const [notifPanelOpen, setNotifPanelOpen] = useState(false);
+  const [membersDirectoryOpen, setMembersDirectoryOpen] = useState(false);
+  const [profileListView, setProfileListView] = useState(null);
+  const [reactionListOpen, setReactionListOpen] = useState(null);
   const fileInputRef = useRef(null);
   const dmScrollRef = useRef(null);
 
@@ -311,6 +314,7 @@ export default function App() {
     setProfileName(name);
     setProfilePanelOpen(true);
     setEditingBio(false);
+    setProfileListView(null);
   }
 
   async function toggleFollow(targetName) {
@@ -323,9 +327,15 @@ export default function App() {
         : [...(mine.following || []), targetName];
       return { ...prev, [profile.name]: { ...mine, following: nextFollowing } };
     });
-    await updateDoc(doc(db, "members", profile.name), {
-      following: isFollowing ? arrayRemove(targetName) : arrayUnion(targetName),
-    });
+    try {
+      await setDoc(
+        doc(db, "members", profile.name),
+        { following: isFollowing ? arrayRemove(targetName) : arrayUnion(targetName) },
+        { merge: true }
+      );
+    } catch (err) {
+      console.error("Follow write failed", err);
+    }
     if (!isFollowing) {
       addDoc(collection(db, "notifications"), {
         to: targetName,
@@ -356,7 +366,7 @@ export default function App() {
   }
 
   async function saveBio() {
-    await updateDoc(doc(db, "members", profile.name), { bio: bioDraft.trim() });
+    await setDoc(doc(db, "members", profile.name), { bio: bioDraft.trim() }, { merge: true });
     setEditingBio(false);
   }
 
@@ -449,7 +459,11 @@ export default function App() {
     <Wrap>
       <div className="hs-layout" style={{ display: "flex", gap: 24, maxWidth: 780, margin: "0 auto", padding: "32px 16px" }}>
         <div className="hs-rail" style={{ width: 64, flexShrink: 0, paddingTop: 6 }}>
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, marginBottom: 10 }}>
+          <div
+            onClick={() => setMembersDirectoryOpen(true)}
+            title="See everyone on Huddle Space"
+            style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, marginBottom: 10, cursor: "pointer" }}
+          >
             <Users size={16} color="#8A7E72" />
             <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: "#8A7E72" }}>{memberNames.length}</span>
           </div>
@@ -750,24 +764,58 @@ export default function App() {
                     {reactionEntries.length > 0 && (
                       <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
                         {reactionEntries.map(([emoji, names]) => (
-                          <div
-                            key={emoji}
-                            title={names.join(", ")}
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 4,
-                              background: "#F6F1E7",
-                              border: myReaction === emoji ? "1px solid #A65D56" : "1px solid #E9DFCE",
-                              borderRadius: 999,
-                              padding: "2px 8px",
-                              fontSize: 12,
-                              fontFamily: "'IBM Plex Mono', monospace",
-                              color: "#2B2A28",
-                            }}
-                          >
-                            <span>{emoji}</span>
-                            <span>{names.length}</span>
+                          <div key={emoji} style={{ position: "relative" }}>
+                            <button
+                              onClick={() => setReactionListOpen((cur) => (cur?.postId === p.id && cur?.emoji === emoji ? null : { postId: p.id, emoji }))}
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 4,
+                                background: "#F6F1E7",
+                                border: myReaction === emoji ? "1px solid #A65D56" : "1px solid #E9DFCE",
+                                borderRadius: 999,
+                                padding: "2px 8px",
+                                fontSize: 12,
+                                fontFamily: "'IBM Plex Mono', monospace",
+                                color: "#2B2A28",
+                                cursor: "pointer",
+                              }}
+                            >
+                              <span>{emoji}</span>
+                              <span>{names.length}</span>
+                            </button>
+                            {reactionListOpen?.postId === p.id && reactionListOpen?.emoji === emoji && (
+                              <div
+                                style={{
+                                  position: "absolute",
+                                  top: "calc(100% + 6px)",
+                                  left: 0,
+                                  background: "#fff",
+                                  border: "1px solid #E9DFCE",
+                                  borderRadius: 10,
+                                  padding: "8px 12px",
+                                  boxShadow: "0 4px 16px rgba(43,42,40,0.12)",
+                                  zIndex: 20,
+                                  whiteSpace: "nowrap",
+                                  fontFamily: "'IBM Plex Sans', sans-serif",
+                                  fontSize: 12,
+                                  color: "#2B2A28",
+                                }}
+                              >
+                                {names.map((n, i) => (
+                                  <div
+                                    key={n}
+                                    onClick={() => {
+                                      setReactionListOpen(null);
+                                      openProfile(n);
+                                    }}
+                                    style={{ cursor: "pointer", padding: "2px 0" }}
+                                  >
+                                    {n}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -951,10 +999,13 @@ export default function App() {
           (sum, p) => sum + Object.values(p.reactions || {}).reduce((s, arr) => s + arr.length, 0),
           0
         );
-        const followingCount = (targetMember.following || []).length;
-        const followersCount = memberNames.filter((n) => (members[n]?.following || []).includes(profileName)).length;
+        const followingList = targetMember.following || [];
+        const followingCount = followingList.length;
+        const followersList = memberNames.filter((n) => (members[n]?.following || []).includes(profileName));
+        const followersCount = followersList.length;
         const isOwnProfile = profileName === profile.name;
         const iFollowThem = (members[profile.name]?.following || []).includes(profileName);
+        const listToShow = profileListView === "followers" ? followersList : profileListView === "following" ? followingList : null;
 
         return (
           <div
@@ -963,126 +1014,198 @@ export default function App() {
           >
             <div
               onClick={(e) => e.stopPropagation()}
-              style={{ width: 360, maxWidth: "90vw", background: "#F6F1E7", borderRadius: 20, padding: "28px 24px", position: "relative" }}
+              style={{ width: 360, maxWidth: "90vw", maxHeight: "80vh", overflowY: "auto", background: "#F6F1E7", borderRadius: 20, padding: "28px 24px", position: "relative" }}
             >
-              <button
-                onClick={() => setProfilePanelOpen(false)}
-                style={{ position: "absolute", top: 16, right: 16, background: "none", border: "none", cursor: "pointer", color: "#8A7E72" }}
-              >
-                <X size={18} />
-              </button>
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center" }}>
-                <Avatar name={profileName} size={64} />
-                <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 22, color: "#2B2A28", marginTop: 12 }}>
-                  {profileName}
-                  {isOwnProfile && <span style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontStyle: "normal", fontSize: 12, color: "#8A7E72" }}> (you)</span>}
-                </div>
-
-                {editingBio ? (
-                  <div style={{ width: "100%", marginTop: 12 }}>
-                    <textarea
-                      value={bioDraft}
-                      onChange={(e) => setBioDraft(e.target.value)}
-                      placeholder="Write a short bio…"
-                      rows={3}
-                      maxLength={160}
-                      style={{
-                        width: "100%",
-                        boxSizing: "border-box",
-                        padding: "8px 10px",
-                        borderRadius: 10,
-                        border: "1px solid #E9DFCE",
-                        fontFamily: "'IBM Plex Sans', sans-serif",
-                        fontSize: 13,
-                        resize: "none",
-                        outline: "none",
-                      }}
-                    />
-                    <div style={{ display: "flex", gap: 8, marginTop: 8, justifyContent: "center" }}>
-                      <button
-                        onClick={() => setEditingBio(false)}
-                        style={{ padding: "6px 14px", borderRadius: 999, border: "1px solid #E9DFCE", background: "transparent", color: "#8A7E72", fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 12, cursor: "pointer" }}
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={saveBio}
-                        style={{ padding: "6px 14px", borderRadius: 999, border: "none", background: "#A65D56", color: "#F6F1E7", fontFamily: "'IBM Plex Sans', sans-serif", fontWeight: 600, fontSize: 12, cursor: "pointer" }}
-                      >
-                        Save
-                      </button>
+              {listToShow ? (
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+                    <button
+                      onClick={() => setProfileListView(null)}
+                      style={{ background: "none", border: "none", cursor: "pointer", color: "#8A7E72", padding: 0 }}
+                    >
+                      <ArrowLeft size={18} />
+                    </button>
+                    <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 18, color: "#2B2A28" }}>
+                      {profileListView === "followers" ? "Followers" : "Following"}
                     </div>
                   </div>
-                ) : (
-                  <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13, color: targetMember.bio ? "#2B2A28" : "#B7ADA0", marginTop: 8, lineHeight: 1.5 }}>
-                    {targetMember.bio || (isOwnProfile ? "No bio yet — add one below." : "No bio yet.")}
-                  </div>
-                )}
-
-                <div style={{ display: "flex", gap: 18, marginTop: 18, paddingTop: 16, borderTop: "1px solid #E9DFCE", width: "100%", justifyContent: "center" }}>
-                  <div style={{ textAlign: "center" }}>
-                    <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontWeight: 700, fontSize: 15, color: "#2B2A28" }}>{postCount}</div>
-                    <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: "#8A7E72" }}>Posts</div>
-                  </div>
-                  <div style={{ textAlign: "center" }}>
-                    <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontWeight: 700, fontSize: 15, color: "#2B2A28" }}>{reactionsReceived}</div>
-                    <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: "#8A7E72" }}>Reactions</div>
-                  </div>
-                  <div style={{ textAlign: "center" }}>
-                    <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontWeight: 700, fontSize: 15, color: "#2B2A28" }}>{followersCount}</div>
-                    <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: "#8A7E72" }}>Followers</div>
-                  </div>
-                  <div style={{ textAlign: "center" }}>
-                    <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontWeight: 700, fontSize: 15, color: "#2B2A28" }}>{followingCount}</div>
-                    <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: "#8A7E72" }}>Following</div>
-                  </div>
-                </div>
-
-                <div style={{ display: "flex", gap: 8, marginTop: 18 }}>
-                  {isOwnProfile ? (
-                    !editingBio && (
-                      <button
-                        onClick={startEditBio}
-                        style={{ padding: "8px 16px", borderRadius: 999, border: "1px solid #E9DFCE", background: "transparent", color: "#2B2A28", fontFamily: "'IBM Plex Sans', sans-serif", fontWeight: 600, fontSize: 12, cursor: "pointer" }}
-                      >
-                        Edit bio
-                      </button>
-                    )
+                  {listToShow.length === 0 ? (
+                    <div style={{ textAlign: "center", color: "#8A7E72", fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13, padding: "20px 0" }}>
+                      {profileListView === "followers" ? "No followers yet." : "Not following anyone yet."}
+                    </div>
                   ) : (
-                    <>
-                      <button
-                        onClick={() => toggleFollow(profileName)}
-                        style={{
-                          padding: "8px 16px",
-                          borderRadius: 999,
-                          border: iFollowThem ? "1px solid #E9DFCE" : "none",
-                          background: iFollowThem ? "transparent" : "#A65D56",
-                          color: iFollowThem ? "#2B2A28" : "#F6F1E7",
-                          fontFamily: "'IBM Plex Sans', sans-serif",
-                          fontWeight: 600,
-                          fontSize: 12,
-                          cursor: "pointer",
-                        }}
+                    listToShow.map((n) => (
+                      <div
+                        key={n}
+                        onClick={() => openProfile(n)}
+                        style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 4px", cursor: "pointer" }}
                       >
-                        {iFollowThem ? "Following" : "Follow"}
-                      </button>
-                      <button
-                        onClick={() => {
-                          setProfilePanelOpen(false);
-                          openConversation(profileName);
-                        }}
-                        style={{ padding: "8px 16px", borderRadius: 999, border: "1px solid #E9DFCE", background: "transparent", color: "#2B2A28", fontFamily: "'IBM Plex Sans', sans-serif", fontWeight: 600, fontSize: 12, cursor: "pointer" }}
-                      >
-                        Message
-                      </button>
-                    </>
+                        <Avatar name={n} size={34} />
+                        <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 14, color: "#2B2A28" }}>{n}</div>
+                      </div>
+                    ))
                   )}
                 </div>
-              </div>
+              ) : (
+                <>
+                  <button
+                    onClick={() => setProfilePanelOpen(false)}
+                    style={{ position: "absolute", top: 16, right: 16, background: "none", border: "none", cursor: "pointer", color: "#8A7E72" }}
+                  >
+                    <X size={18} />
+                  </button>
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center" }}>
+                    <Avatar name={profileName} size={64} />
+                    <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 22, color: "#2B2A28", marginTop: 12 }}>
+                      {profileName}
+                      {isOwnProfile && <span style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontStyle: "normal", fontSize: 12, color: "#8A7E72" }}> (you)</span>}
+                    </div>
+
+                    {editingBio ? (
+                      <div style={{ width: "100%", marginTop: 12 }}>
+                        <textarea
+                          value={bioDraft}
+                          onChange={(e) => setBioDraft(e.target.value)}
+                          placeholder="Write a short bio…"
+                          rows={3}
+                          maxLength={160}
+                          style={{
+                            width: "100%",
+                            boxSizing: "border-box",
+                            padding: "8px 10px",
+                            borderRadius: 10,
+                            border: "1px solid #E9DFCE",
+                            fontFamily: "'IBM Plex Sans', sans-serif",
+                            fontSize: 13,
+                            resize: "none",
+                            outline: "none",
+                          }}
+                        />
+                        <div style={{ display: "flex", gap: 8, marginTop: 8, justifyContent: "center" }}>
+                          <button
+                            onClick={() => setEditingBio(false)}
+                            style={{ padding: "6px 14px", borderRadius: 999, border: "1px solid #E9DFCE", background: "transparent", color: "#8A7E72", fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 12, cursor: "pointer" }}
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={saveBio}
+                            style={{ padding: "6px 14px", borderRadius: 999, border: "none", background: "#A65D56", color: "#F6F1E7", fontFamily: "'IBM Plex Sans', sans-serif", fontWeight: 600, fontSize: 12, cursor: "pointer" }}
+                          >
+                            Save
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13, color: targetMember.bio ? "#2B2A28" : "#B7ADA0", marginTop: 8, lineHeight: 1.5 }}>
+                        {targetMember.bio || (isOwnProfile ? "No bio yet — add one below." : "No bio yet.")}
+                      </div>
+                    )}
+
+                    <div style={{ display: "flex", gap: 18, marginTop: 18, paddingTop: 16, borderTop: "1px solid #E9DFCE", width: "100%", justifyContent: "center" }}>
+                      <div style={{ textAlign: "center" }}>
+                        <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontWeight: 700, fontSize: 15, color: "#2B2A28" }}>{postCount}</div>
+                        <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: "#8A7E72" }}>Posts</div>
+                      </div>
+                      <div style={{ textAlign: "center" }}>
+                        <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontWeight: 700, fontSize: 15, color: "#2B2A28" }}>{reactionsReceived}</div>
+                        <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: "#8A7E72" }}>Reactions</div>
+                      </div>
+                      <div style={{ textAlign: "center", cursor: "pointer" }} onClick={() => setProfileListView("followers")}>
+                        <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontWeight: 700, fontSize: 15, color: "#2B2A28" }}>{followersCount}</div>
+                        <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: "#8A7E72", textDecoration: "underline" }}>Followers</div>
+                      </div>
+                      <div style={{ textAlign: "center", cursor: "pointer" }} onClick={() => setProfileListView("following")}>
+                        <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontWeight: 700, fontSize: 15, color: "#2B2A28" }}>{followingCount}</div>
+                        <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: "#8A7E72", textDecoration: "underline" }}>Following</div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: "flex", gap: 8, marginTop: 18 }}>
+                      {isOwnProfile ? (
+                        !editingBio && (
+                          <button
+                            onClick={startEditBio}
+                            style={{ padding: "8px 16px", borderRadius: 999, border: "1px solid #E9DFCE", background: "transparent", color: "#2B2A28", fontFamily: "'IBM Plex Sans', sans-serif", fontWeight: 600, fontSize: 12, cursor: "pointer" }}
+                          >
+                            Edit bio
+                          </button>
+                        )
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => toggleFollow(profileName)}
+                            style={{
+                              padding: "8px 16px",
+                              borderRadius: 999,
+                              border: iFollowThem ? "1px solid #E9DFCE" : "none",
+                              background: iFollowThem ? "transparent" : "#A65D56",
+                              color: iFollowThem ? "#2B2A28" : "#F6F1E7",
+                              fontFamily: "'IBM Plex Sans', sans-serif",
+                              fontWeight: 600,
+                              fontSize: 12,
+                              cursor: "pointer",
+                            }}
+                          >
+                            {iFollowThem ? "Following" : "Follow"}
+                          </button>
+                          <button
+                            onClick={() => {
+                              setProfilePanelOpen(false);
+                              openConversation(profileName);
+                            }}
+                            style={{ padding: "8px 16px", borderRadius: 999, border: "1px solid #E9DFCE", background: "transparent", color: "#2B2A28", fontFamily: "'IBM Plex Sans', sans-serif", fontWeight: 600, fontSize: 12, cursor: "pointer" }}
+                          >
+                            Message
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         );
       })()}
+
+      {membersDirectoryOpen && (
+        <div
+          onClick={() => setMembersDirectoryOpen(false)}
+          style={{ position: "fixed", inset: 0, background: "rgba(43,42,40,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 60 }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{ width: 360, maxWidth: "90vw", maxHeight: "80vh", overflowY: "auto", background: "#F6F1E7", borderRadius: 20, padding: "24px", position: "relative" }}
+          >
+            <button
+              onClick={() => setMembersDirectoryOpen(false)}
+              style={{ position: "absolute", top: 16, right: 16, background: "none", border: "none", cursor: "pointer", color: "#8A7E72" }}
+            >
+              <X size={18} />
+            </button>
+            <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 20, color: "#2B2A28", marginBottom: 16 }}>
+              Everyone on Huddle Space ({memberNames.length})
+            </div>
+            {memberNames.map((n) => (
+              <div
+                key={n}
+                onClick={() => {
+                  setMembersDirectoryOpen(false);
+                  openProfile(n);
+                }}
+                style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 4px", cursor: "pointer" }}
+              >
+                <Avatar name={n} size={34} />
+                <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 14, color: "#2B2A28" }}>
+                  {n}
+                  {n === profile.name && <span style={{ color: "#8A7E72" }}> (you)</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </Wrap>
   );
 }

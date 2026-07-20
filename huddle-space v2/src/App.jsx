@@ -447,7 +447,7 @@ export default function App() {
               padding: "12px 14px",
               borderRadius: 10,
               border: "1px solid #2E2E33",
-              background: "#fff",
+              background: "#1C1C1F",
               fontFamily: "'IBM Plex Sans', sans-serif",
               fontSize: 15,
               marginBottom: 14,
@@ -547,7 +547,7 @@ export default function App() {
                       width: 300,
                       maxHeight: 380,
                       overflowY: "auto",
-                      background: "#fff",
+                      background: "#1C1C1F",
                       border: "1px solid #2E2E33",
                       borderRadius: 14,
                       boxShadow: "0 8px 24px rgba(43,42,40,0.15)",
@@ -567,7 +567,7 @@ export default function App() {
                             padding: "12px 14px",
                             borderBottom: "1px solid #2A2A2D",
                             cursor: "pointer",
-                            background: n.read ? "transparent" : "#16161A",
+                            background: n.read ? "transparent" : "rgba(255,138,76,0.10)",
                           }}
                         >
                           <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13, color: "#EDEDEF" }}>{n.message}</div>
@@ -760,7 +760,7 @@ export default function App() {
                 const pickerOpen = reactionPickerOpen[p.id];
                 const commentsOpen = openComments[p.id];
                 return (
-                  <div key={p.id} style={{ background: "#fff", border: "1px solid #2E2E33", borderRadius: 16, padding: 18 }}>
+                  <div key={p.id} style={{ background: "#1C1C1F", border: "1px solid #2E2E33", borderRadius: 16, padding: 18 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                       <div
                         onClick={() => openProfile(p.author)}
@@ -827,7 +827,7 @@ export default function App() {
                                   position: "absolute",
                                   top: "calc(100% + 6px)",
                                   left: 0,
-                                  background: "#fff",
+                                  background: "#1C1C1F",
                                   border: "1px solid #2E2E33",
                                   borderRadius: 10,
                                   padding: "8px 12px",
@@ -882,7 +882,7 @@ export default function App() {
                               position: "absolute",
                               bottom: "calc(100% + 8px)",
                               left: 0,
-                              background: "#fff",
+                              background: "#1C1C1F",
                               border: "1px solid #2E2E33",
                               borderRadius: 999,
                               padding: "6px 8px",
@@ -989,7 +989,7 @@ export default function App() {
                           <div
                             style={{
                               maxWidth: "78%",
-                              background: mine ? "#FF8A4C" : "#fff",
+                              background: mine ? "#FF8A4C" : "#26262B",
                               color: mine ? "#16161A" : "#EDEDEF",
                               border: mine ? "none" : "1px solid #2E2E33",
                               borderRadius: 14,
@@ -1012,7 +1012,7 @@ export default function App() {
                     onChange={(e) => setDmDraft(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && sendDm()}
                     placeholder="Write a message…"
-                    style={{ flex: 1, padding: "9px 12px", borderRadius: 999, border: "1px solid #2E2E33", background: "#fff", fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13, outline: "none" }}
+                    style={{ flex: 1, padding: "9px 12px", borderRadius: 999, border: "1px solid #2E2E33", background: "#1C1C1F", fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13, outline: "none" }}
                   />
                   <button
                     onClick={sendDm}
@@ -1255,6 +1255,7 @@ function Wrap({ children }) {
         * { box-sizing: border-box; margin: 0; }
         body { margin: 0; }
         input::placeholder, textarea::placeholder { color: #5C5C63; }
+        input, textarea { color: #EDEDEF; }
         .hs-icon-btn { transition: background 0.15s ease; }
         .hs-icon-btn:hover { background: #232327; }
 

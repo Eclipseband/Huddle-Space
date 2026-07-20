@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Heart, MessageCircle, Image as ImageIcon, Send, Users, X, Smile, Mail, ArrowLeft, Bell, Trash2 } from "lucide-react";
+import { Heart, MessageCircle, Image as ImageIcon, Send, Users, X, Smile, Mail, ArrowLeft, Bell, Trash2, Camera } from "lucide-react";
 import { db } from "./firebase";
 import {
   collection,
@@ -77,8 +77,25 @@ function convKey(a, b) {
   return [a, b].sort().join("__");
 }
 
-function Avatar({ name, size = 36 }) {
+function Avatar({ name, size = 36, photoURL }) {
   const initial = name?.[0]?.toUpperCase() || "?";
+  if (photoURL) {
+    return (
+      <img
+        src={photoURL}
+        alt={name}
+        style={{
+          width: size,
+          height: size,
+          borderRadius: "50%",
+          objectFit: "cover",
+          flexShrink: 0,
+          border: "2px solid #16161A",
+          display: "block",
+        }}
+      />
+    );
+  }
   return (
     <div
       style={{
@@ -143,6 +160,8 @@ export default function App() {
   const [reactionListOpen, setReactionListOpen] = useState(null);
   const fileInputRef = useRef(null);
   const dmScrollRef = useRef(null);
+  const avatarFileInputRef = useRef(null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
 
   // Load profile from this browser's localStorage on mount
   useEffect(() => {
@@ -394,6 +413,21 @@ export default function App() {
     setEditingBio(false);
   }
 
+  async function handleAvatarSelect(e) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !file.type.startsWith("image/")) return;
+    setAvatarUploading(true);
+    try {
+      const dataUrl = await compressImageFile(file, 300, 0.7);
+      await setDoc(doc(db, "members", profile.name), { photoURL: dataUrl }, { merge: true });
+    } catch (err) {
+      console.error("Avatar upload failed", err);
+    } finally {
+      setAvatarUploading(false);
+    }
+  }
+
   const [dmDraft, setDmDraft] = useState("");
   async function sendDm() {
     const text = dmDraft.trim();
@@ -500,7 +534,7 @@ export default function App() {
                 onClick={() => openProfile(n)}
                 style={{ cursor: "pointer", opacity: n === profile.name ? 0.55 : 1 }}
               >
-                <Avatar name={n} size={32} />
+                <Avatar name={n} size={32} photoURL={members[n]?.photoURL} />
               </div>
             ))}
           </div>
@@ -610,7 +644,7 @@ export default function App() {
                   title={n === profile.name ? `${n} (you)` : `View ${n}'s profile`}
                   style={{ marginLeft: -8, transform: `rotate(${(i % 3) - 1}deg)`, zIndex: 6 - i, cursor: "pointer" }}
                 >
-                  <Avatar name={n} size={30} />
+                  <Avatar name={n} size={30} photoURL={members[n]?.photoURL} />
                 </div>
               ))}
               {memberNames.length > 6 && (
@@ -769,7 +803,7 @@ export default function App() {
                         onClick={() => openProfile(p.author)}
                         style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 10, cursor: "pointer", width: "fit-content" }}
                       >
-                        <Avatar name={p.author} size={38} />
+                        <Avatar name={p.author} size={38} photoURL={members[p.author]?.photoURL} />
                         <div>
                           <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontWeight: 600, fontSize: 14, color: "#EDEDEF" }}>{p.author}</div>
                           <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: "#8B8B93" }}>{timeAgo(p.timestamp)}</div>
@@ -931,7 +965,7 @@ export default function App() {
                       <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
                         {p.comments.map((c, i) => (
                           <div key={i} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-                            <Avatar name={c.author} size={26} />
+                            <Avatar name={c.author} size={26} photoURL={members[c.author]?.photoURL} />
                             <div style={{ background: "#1C1C1F", borderRadius: 12, padding: "6px 12px", fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13, color: "#EDEDEF" }}>
                               <span style={{ fontWeight: 600 }}>{c.author}</span> {c.text}
                             </div>
@@ -985,7 +1019,7 @@ export default function App() {
                     .filter((n) => n !== profile.name)
                     .map((n) => (
                       <div key={n} onClick={() => openConversation(n)} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 18px", cursor: "pointer", borderBottom: "1px solid #2A2A2D" }}>
-                        <Avatar name={n} size={34} />
+                        <Avatar name={n} size={34} photoURL={members[n]?.photoURL} />
                         <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 14, color: "#EDEDEF" }}>{n}</div>
                       </div>
                     ))
@@ -1092,7 +1126,7 @@ export default function App() {
                         onClick={() => openProfile(n)}
                         style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 4px", cursor: "pointer" }}
                       >
-                        <Avatar name={n} size={34} />
+                        <Avatar name={n} size={34} photoURL={members[n]?.photoURL} />
                         <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 14, color: "#EDEDEF" }}>{n}</div>
                       </div>
                     ))
@@ -1107,7 +1141,38 @@ export default function App() {
                     <X size={18} />
                   </button>
                   <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center" }}>
-                    <Avatar name={profileName} size={64} />
+                    {isOwnProfile ? (
+                      <div
+                        onClick={() => !avatarUploading && avatarFileInputRef.current?.click()}
+                        style={{ position: "relative", cursor: avatarUploading ? "default" : "pointer", width: 64, height: 64 }}
+                        title="Change profile photo"
+                      >
+                        <Avatar name={profileName} size={64} photoURL={targetMember.photoURL} />
+                        <div
+                          style={{
+                            position: "absolute",
+                            bottom: -2,
+                            right: -2,
+                            width: 24,
+                            height: 24,
+                            borderRadius: "50%",
+                            background: "#FF8A4C",
+                            border: "2px solid #1C1C1F",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
+                        >
+                          <Camera size={12} color="#16161A" />
+                        </div>
+                        <input ref={avatarFileInputRef} type="file" accept="image/*" onChange={handleAvatarSelect} style={{ display: "none" }} />
+                      </div>
+                    ) : (
+                      <Avatar name={profileName} size={64} photoURL={targetMember.photoURL} />
+                    )}
+                    {avatarUploading && (
+                      <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: "#8B8B93", marginTop: 4 }}>Uploading…</div>
+                    )}
                     <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 22, color: "#EDEDEF", marginTop: 12 }}>
                       {profileName}
                       {isOwnProfile && <span style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontStyle: "normal", fontSize: 12, color: "#8B8B93" }}> (you)</span>}
@@ -1265,7 +1330,7 @@ export default function App() {
                 }}
                 style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 4px", cursor: "pointer" }}
               >
-                <Avatar name={n} size={34} />
+                <Avatar name={n} size={34} photoURL={members[n]?.photoURL} />
                 <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 14, color: "#EDEDEF" }}>
                   {n}
                   {n === profile.name && <span style={{ color: "#8B8B93" }}> (you)</span>}

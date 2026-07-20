@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Heart, MessageCircle, Image as ImageIcon, Send, Users, X, Smile, Mail, ArrowLeft, Bell, Trash2, Camera } from "lucide-react";
+import { Heart, MessageCircle, Image as ImageIcon, Send, Users, X, Smile, Mail, ArrowLeft, Bell, Trash2, Camera, Pencil, Flag, Pin, BarChart3, Shield } from "lucide-react";
 import { db } from "./firebase";
 import {
   collection,
@@ -75,6 +75,42 @@ function timeAgo(ts) {
 
 function convKey(a, b) {
   return [a, b].sort().join("__");
+}
+
+function extractMentionedNames(text, memberNames) {
+  if (!text) return [];
+  return memberNames.filter((n) => text.includes("@" + n));
+}
+
+function renderWithMentions(text, memberNames, onClickName) {
+  if (!text) return text;
+  const sorted = [...memberNames].sort((a, b) => b.length - a.length);
+  if (sorted.length === 0) return text;
+  const escaped = sorted.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  const regex = new RegExp(`@(${escaped.join("|")})`, "g");
+  const parts = [];
+  let lastIndex = 0;
+  let match;
+  let key = 0;
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > lastIndex) parts.push(text.slice(lastIndex, match.index));
+    const name = match[1];
+    parts.push(
+      <span
+        key={key++}
+        onClick={(e) => {
+          e.stopPropagation();
+          onClickName(name);
+        }}
+        style={{ color: "#FF8A4C", fontWeight: 600, cursor: "pointer" }}
+      >
+        @{name}
+      </span>
+    );
+    lastIndex = regex.lastIndex;
+  }
+  if (lastIndex < text.length) parts.push(text.slice(lastIndex));
+  return parts;
 }
 
 function Avatar({ name, size = 36, photoURL, online }) {
@@ -156,6 +192,13 @@ export default function App() {
   const [posts, setPosts] = useState([]);
   const [composeText, setComposeText] = useState("");
   const [composeImage, setComposeImage] = useState(null); // { blob, previewUrl }
+  const [pollMode, setPollMode] = useState(false);
+  const [pollQuestion, setPollQuestion] = useState("");
+  const [pollOptions, setPollOptions] = useState(["", ""]);
+  const [editingPostId, setEditingPostId] = useState(null);
+  const [editDraft, setEditDraft] = useState("");
+  const [reports, setReports] = useState([]);
+  const [reportsPanelOpen, setReportsPanelOpen] = useState(false);
   const [openComments, setOpenComments] = useState({});
   const [commentDrafts, setCommentDrafts] = useState({});
   const [posting, setPosting] = useState(false);
@@ -245,6 +288,17 @@ export default function App() {
     return () => unsub();
   }, [profile]);
 
+  // Reports: realtime listener, admin-only
+  useEffect(() => {
+    if (!profile || !ADMIN_NAMES.includes(profile.name)) return;
+    const unsub = onSnapshot(collection(db, "reports"), (snap) => {
+      const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      list.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+      setReports(list);
+    });
+    return () => unsub();
+  }, [profile]);
+
   // Posts: realtime listener, newest first
   useEffect(() => {
     const q = query(collection(db, "posts"), orderBy("timestamp", "desc"));
@@ -326,7 +380,9 @@ export default function App() {
 
   async function sharePost() {
     const text = composeText.trim();
-    if (!text) return;
+    const validPollOptions = pollOptions.map((o) => o.trim()).filter(Boolean);
+    const isValidPoll = pollMode && pollQuestion.trim() && validPollOptions.length >= 2;
+    if (!text && !isValidPoll) return;
     setPosting(true);
     try {
       await addDoc(collection(db, "posts"), {
@@ -336,15 +392,20 @@ export default function App() {
         timestamp: serverTimestamp(),
         reactions: {},
         comments: [],
+        pinned: false,
+        poll: isValidPoll
+          ? { question: pollQuestion.trim(), options: validPollOptions.map((o) => ({ text: o, votes: [] })) }
+          : null,
       });
+      const mentioned = extractMentionedNames(text, memberNames);
       memberNames
-        .filter((n) => n !== profile.name && (members[n]?.following || []).includes(profile.name))
+        .filter((n) => n !== profile.name && ((members[n]?.following || []).includes(profile.name) || mentioned.includes(n)))
         .forEach((n) => {
           addDoc(collection(db, "notifications"), {
             to: n,
-            type: "post",
+            type: mentioned.includes(n) ? "mention" : "post",
             from: profile.name,
-            message: `${profile.name} posted something new`,
+            message: mentioned.includes(n) ? `${profile.name} mentioned you in a post` : `${profile.name} posted something new`,
             timestamp: Date.now(),
             read: false,
           });
@@ -352,6 +413,9 @@ export default function App() {
       setComposeText("");
       setComposeImage(null);
       setImageError("");
+      setPollMode(false);
+      setPollQuestion("");
+      setPollOptions(["", ""]);
     } catch (err) {
       setImageError("Something went wrong posting. Try again.");
     } finally {
@@ -403,6 +467,78 @@ export default function App() {
         read: false,
       });
     }
+    extractMentionedNames(text, memberNames)
+      .filter((n) => n !== profile.name && n !== post.author)
+      .forEach((n) => {
+        addDoc(collection(db, "notifications"), {
+          to: n,
+          type: "mention",
+          from: profile.name,
+          message: `${profile.name} mentioned you in a comment`,
+          timestamp: Date.now(),
+          read: false,
+        });
+      });
+  }
+
+  async function votePoll(postId, optionIndex) {
+    const post = posts.find((p) => p.id === postId);
+    if (!post?.poll) return;
+    const alreadyVotedThis = (post.poll.options[optionIndex]?.votes || []).includes(profile.name);
+    const options = post.poll.options.map((opt, i) => {
+      const votes = (opt.votes || []).filter((n) => n !== profile.name);
+      if (i === optionIndex && !alreadyVotedThis) votes.push(profile.name);
+      return { ...opt, votes };
+    });
+    await updateDoc(doc(db, "posts", postId), { poll: { ...post.poll, options } });
+  }
+
+  function startEditPost(post) {
+    setEditingPostId(post.id);
+    setEditDraft(post.text || "");
+  }
+
+  function cancelEditPost() {
+    setEditingPostId(null);
+    setEditDraft("");
+  }
+
+  async function saveEditPost(postId) {
+    const text = editDraft.trim();
+    if (!text) return;
+    await updateDoc(doc(db, "posts", postId), { text, edited: true, editedAt: Date.now() });
+    setEditingPostId(null);
+  }
+
+  async function reportPost(post) {
+    const confirmed = window.confirm("Report this post to the admins for review?");
+    if (!confirmed) return;
+    await addDoc(collection(db, "reports"), {
+      postId: post.id,
+      postAuthor: post.author,
+      postTextSnippet: (post.text || "(photo/poll only)").slice(0, 140),
+      reportedBy: profile.name,
+      timestamp: Date.now(),
+      resolved: false,
+    });
+    ADMIN_NAMES.forEach((admin) => {
+      addDoc(collection(db, "notifications"), {
+        to: admin,
+        type: "report",
+        from: profile.name,
+        message: `${profile.name} reported a post by ${post.author}`,
+        timestamp: Date.now(),
+        read: false,
+      });
+    });
+  }
+
+  async function togglePin(postId, currentlyPinned) {
+    await updateDoc(doc(db, "posts", postId), { pinned: !currentlyPinned });
+  }
+
+  async function dismissReport(reportId) {
+    await updateDoc(doc(db, "reports", reportId), { resolved: true });
   }
 
   async function deletePost(postId, author) {
@@ -468,6 +604,7 @@ export default function App() {
   function handleNotifClick(n) {
     setNotifPanelOpen(false);
     if (n.type === "dm") openConversation(n.from);
+    else if (n.type === "report") setReportsPanelOpen(true);
     else openProfile(n.from);
   }
 
@@ -683,6 +820,32 @@ export default function App() {
                   </div>
                 )}
               </div>
+              {ADMIN_NAMES.includes(profile.name) && (
+                <div style={{ position: "relative" }}>
+                  <button
+                    onClick={() => setReportsPanelOpen(true)}
+                    title="Reports (admin)"
+                    className="hs-icon-btn"
+                    style={{ background: "none", border: "none", cursor: "pointer", color: "#8B8B93", width: 38, height: 38, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}
+                  >
+                    <Shield size={18} />
+                    {reports.some((r) => !r.resolved && posts.some((p) => p.id === r.postId)) && (
+                      <span
+                        style={{
+                          position: "absolute",
+                          top: 6,
+                          right: 7,
+                          width: 8,
+                          height: 8,
+                          borderRadius: "50%",
+                          background: "#FF8A4C",
+                          border: "1px solid #1C1C1F",
+                        }}
+                      />
+                    )}
+                  </button>
+                </div>
+              )}
               <button
                 onClick={() => {
                   setDmWith(null);
@@ -739,7 +902,7 @@ export default function App() {
             <textarea
               value={composeText}
               onChange={(e) => setComposeText(e.target.value)}
-              placeholder="What's going on?"
+              placeholder={pollMode ? "Add a caption (optional)" : "What's going on? Tip: @Name to mention someone"}
               rows={3}
               style={{
                 width: "100%",
@@ -753,6 +916,81 @@ export default function App() {
                 outline: "none",
               }}
             />
+            {pollMode && (
+              <div style={{ background: "#16161A", border: "1px solid #2E2E33", borderRadius: 12, padding: 12, marginTop: 4 }}>
+                <input
+                  value={pollQuestion}
+                  onChange={(e) => setPollQuestion(e.target.value)}
+                  placeholder="Ask a question…"
+                  style={{
+                    width: "100%",
+                    boxSizing: "border-box",
+                    padding: "8px 10px",
+                    borderRadius: 8,
+                    border: "1px solid #2E2E33",
+                    background: "#1C1C1F",
+                    color: "#EDEDEF",
+                    fontFamily: "'IBM Plex Sans', sans-serif",
+                    fontSize: 13,
+                    outline: "none",
+                    marginBottom: 8,
+                  }}
+                />
+                {pollOptions.map((opt, i) => (
+                  <div key={i} style={{ display: "flex", gap: 6, marginBottom: 6 }}>
+                    <input
+                      value={opt}
+                      onChange={(e) =>
+                        setPollOptions((opts) => opts.map((o, oi) => (oi === i ? e.target.value : o)))
+                      }
+                      placeholder={`Option ${i + 1}`}
+                      style={{
+                        flex: 1,
+                        boxSizing: "border-box",
+                        padding: "7px 10px",
+                        borderRadius: 8,
+                        border: "1px solid #2E2E33",
+                        background: "#1C1C1F",
+                        color: "#EDEDEF",
+                        fontFamily: "'IBM Plex Sans', sans-serif",
+                        fontSize: 13,
+                        outline: "none",
+                      }}
+                    />
+                    {pollOptions.length > 2 && (
+                      <button
+                        onClick={() => setPollOptions((opts) => opts.filter((_, oi) => oi !== i))}
+                        style={{ background: "none", border: "none", color: "#5C5C63", cursor: "pointer" }}
+                      >
+                        <X size={16} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6 }}>
+                  {pollOptions.length < 6 ? (
+                    <button
+                      onClick={() => setPollOptions((opts) => [...opts, ""])}
+                      style={{ background: "none", border: "none", color: "#8B8B93", cursor: "pointer", fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 12 }}
+                    >
+                      + Add option
+                    </button>
+                  ) : (
+                    <span />
+                  )}
+                  <button
+                    onClick={() => {
+                      setPollMode(false);
+                      setPollQuestion("");
+                      setPollOptions(["", ""]);
+                    }}
+                    style={{ background: "none", border: "none", color: "#5C5C63", cursor: "pointer", fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 12 }}
+                  >
+                    Cancel poll
+                  </button>
+                </div>
+              </div>
+            )}
             {composeImage && (
               <div style={{ position: "relative", marginTop: 8, display: "inline-block" }}>
                 <img src={composeImage} alt="Selected" style={{ maxWidth: "100%", maxHeight: 220, borderRadius: 10, display: "block" }} />
@@ -783,27 +1021,46 @@ export default function App() {
             )}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 12 }}>
               <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileSelect} style={{ display: "none" }} />
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={imageProcessing}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  background: "none",
-                  border: "none",
-                  color: "#8B8B93",
-                  cursor: imageProcessing ? "default" : "pointer",
-                  fontFamily: "'IBM Plex Sans', sans-serif",
-                  fontSize: 13,
-                  padding: "6px 8px",
-                }}
-              >
-                <ImageIcon size={16} /> {imageProcessing ? "Processing…" : "Photo"}
-              </button>
+              <div style={{ display: "flex", gap: 4 }}>
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={imageProcessing}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    background: "none",
+                    border: "none",
+                    color: "#8B8B93",
+                    cursor: imageProcessing ? "default" : "pointer",
+                    fontFamily: "'IBM Plex Sans', sans-serif",
+                    fontSize: 13,
+                    padding: "6px 8px",
+                  }}
+                >
+                  <ImageIcon size={16} /> {imageProcessing ? "Processing…" : "Photo"}
+                </button>
+                <button
+                  onClick={() => setPollMode((v) => !v)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    background: "none",
+                    border: "none",
+                    color: pollMode ? "#FF8A4C" : "#8B8B93",
+                    cursor: "pointer",
+                    fontFamily: "'IBM Plex Sans', sans-serif",
+                    fontSize: 13,
+                    padding: "6px 8px",
+                  }}
+                >
+                  <BarChart3 size={16} /> Poll
+                </button>
+              </div>
               <button
                 onClick={sharePost}
-                disabled={!composeText.trim() || posting}
+                disabled={(!composeText.trim() && !(pollMode && pollQuestion.trim() && pollOptions.filter((o) => o.trim()).length >= 2)) || posting}
                 style={{
                   display: "flex",
                   alignItems: "center",
@@ -811,12 +1068,18 @@ export default function App() {
                   padding: "9px 18px",
                   borderRadius: 999,
                   border: "none",
-                  background: composeText.trim() ? "#FF8A4C" : "#2E2E33",
+                  background:
+                    composeText.trim() || (pollMode && pollQuestion.trim() && pollOptions.filter((o) => o.trim()).length >= 2)
+                      ? "#FF8A4C"
+                      : "#2E2E33",
                   color: "#16161A",
                   fontFamily: "'IBM Plex Sans', sans-serif",
                   fontWeight: 600,
                   fontSize: 13,
-                  cursor: composeText.trim() ? "pointer" : "default",
+                  cursor:
+                    composeText.trim() || (pollMode && pollQuestion.trim() && pollOptions.filter((o) => o.trim()).length >= 2)
+                      ? "pointer"
+                      : "default",
                 }}
               >
                 {posting ? "Sharing…" : "Share"} <Send size={13} />
@@ -826,7 +1089,8 @@ export default function App() {
 
           {(() => {
             const myFollowing = members[profile.name]?.following || [];
-            const visiblePosts = feedFilter === "following" ? posts.filter((p) => p.author === profile.name || myFollowing.includes(p.author)) : posts;
+            const visiblePostsRaw = feedFilter === "following" ? posts.filter((p) => p.author === profile.name || myFollowing.includes(p.author)) : posts;
+            const visiblePosts = [...visiblePostsRaw].sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
             return (
               <>
                 <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
@@ -865,7 +1129,12 @@ export default function App() {
                 const pickerOpen = reactionPickerOpen[p.id];
                 const commentsOpen = openComments[p.id];
                 return (
-                  <div key={p.id} style={{ background: "#1C1C1F", border: "1px solid #2E2E33", borderRadius: 16, padding: 18 }}>
+                  <div key={p.id} style={{ background: "#1C1C1F", border: p.pinned ? "1px solid #FF8A4C" : "1px solid #2E2E33", borderRadius: 16, padding: 18 }}>
+                    {p.pinned && (
+                      <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 10, fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: "#FF8A4C" }}>
+                        <Pin size={12} /> Pinned
+                      </div>
+                    )}
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                       <div
                         onClick={() => openProfile(p.author)}
@@ -874,44 +1143,156 @@ export default function App() {
                         <Avatar name={p.author} size={38} photoURL={members[p.author]?.photoURL} online={isOnline(p.author)} />
                         <div>
                           <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontWeight: 600, fontSize: 14, color: "#EDEDEF" }}>{p.author}</div>
-                          <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: "#8B8B93" }}>{timeAgo(p.timestamp)}</div>
+                          <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: "#8B8B93" }}>
+                            {timeAgo(p.timestamp)}
+                            {p.edited && " · edited"}
+                          </div>
                         </div>
                       </div>
-                      {(p.author === profile.name || ADMIN_NAMES.includes(profile.name)) && (
-                        <button
-                          onClick={() => deletePost(p.id, p.author)}
-                          title={p.author === profile.name ? "Delete post" : "Delete post (admin)"}
-                          className="hs-icon-btn"
+                      <div style={{ display: "flex", gap: 2, flexShrink: 0 }}>
+                        {ADMIN_NAMES.includes(profile.name) && (
+                          <button
+                            onClick={() => togglePin(p.id, p.pinned)}
+                            title={p.pinned ? "Unpin post" : "Pin post (admin)"}
+                            className="hs-icon-btn"
+                            style={{ background: "none", border: "none", cursor: "pointer", color: p.pinned ? "#FF8A4C" : "#5C5C63", width: 32, height: 32, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }}
+                          >
+                            <Pin size={15} />
+                          </button>
+                        )}
+                        {p.author === profile.name && (
+                          <button
+                            onClick={() => startEditPost(p)}
+                            title="Edit post"
+                            className="hs-icon-btn"
+                            style={{ background: "none", border: "none", cursor: "pointer", color: "#5C5C63", width: 32, height: 32, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }}
+                          >
+                            <Pencil size={14} />
+                          </button>
+                        )}
+                        {p.author !== profile.name && (
+                          <button
+                            onClick={() => reportPost(p)}
+                            title="Report post"
+                            className="hs-icon-btn"
+                            style={{ background: "none", border: "none", cursor: "pointer", color: "#5C5C63", width: 32, height: 32, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }}
+                          >
+                            <Flag size={14} />
+                          </button>
+                        )}
+                        {(p.author === profile.name || ADMIN_NAMES.includes(profile.name)) && (
+                          <button
+                            onClick={() => deletePost(p.id, p.author)}
+                            title={p.author === profile.name ? "Delete post" : "Delete post (admin)"}
+                            className="hs-icon-btn"
+                            style={{
+                              background: "none",
+                              border: "none",
+                              cursor: "pointer",
+                              color: p.author === profile.name ? "#5C5C63" : "#FF8A4C",
+                              width: 32,
+                              height: 32,
+                              borderRadius: "50%",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                            }}
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    {editingPostId === p.id ? (
+                      <div style={{ marginBottom: 10 }}>
+                        <textarea
+                          value={editDraft}
+                          onChange={(e) => setEditDraft(e.target.value)}
+                          rows={3}
                           style={{
-                            background: "none",
-                            border: "none",
-                            cursor: "pointer",
-                            color: p.author === profile.name ? "#5C5C63" : "#FF8A4C",
-                            width: 32,
-                            height: 32,
-                            borderRadius: "50%",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            flexShrink: 0,
+                            width: "100%",
+                            boxSizing: "border-box",
+                            padding: "8px 10px",
+                            borderRadius: 8,
+                            border: "1px solid #2E2E33",
+                            background: "#16161A",
+                            color: "#EDEDEF",
+                            fontFamily: "'IBM Plex Sans', sans-serif",
+                            fontSize: 14,
+                            resize: "none",
+                            outline: "none",
+                          }}
+                        />
+                        <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+                          <button
+                            onClick={cancelEditPost}
+                            style={{ padding: "6px 14px", borderRadius: 999, border: "1px solid #2E2E33", background: "transparent", color: "#8B8B93", fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 12, cursor: "pointer" }}
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={() => saveEditPost(p.id)}
+                            style={{ padding: "6px 14px", borderRadius: 999, border: "none", background: "#FF8A4C", color: "#16161A", fontFamily: "'IBM Plex Sans', sans-serif", fontWeight: 600, fontSize: 12, cursor: "pointer" }}
+                          >
+                            Save
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      p.text && (
+                        <div
+                          style={{
+                            fontFamily: "'IBM Plex Sans', sans-serif",
+                            fontSize: 15,
+                            color: "#EDEDEF",
+                            lineHeight: 1.5,
+                            marginBottom: p.imageUrl || p.poll ? 12 : 4,
+                            whiteSpace: "pre-wrap",
                           }}
                         >
-                          <Trash2 size={15} />
-                        </button>
-                      )}
-                    </div>
-                    <div
-                      style={{
-                        fontFamily: "'IBM Plex Sans', sans-serif",
-                        fontSize: 15,
-                        color: "#EDEDEF",
-                        lineHeight: 1.5,
-                        marginBottom: p.imageUrl ? 12 : 4,
-                        whiteSpace: "pre-wrap",
-                      }}
-                    >
-                      {p.text}
-                    </div>
+                          {renderWithMentions(p.text, memberNames, openProfile)}
+                        </div>
+                      )
+                    )}
+                    {p.poll && (
+                      <div style={{ marginBottom: p.imageUrl ? 12 : 4 }}>
+                        <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontWeight: 600, fontSize: 14, color: "#EDEDEF", marginBottom: 8 }}>
+                          {p.poll.question}
+                        </div>
+                        {(() => {
+                          const totalVotes = p.poll.options.reduce((sum, o) => sum + (o.votes?.length || 0), 0);
+                          return p.poll.options.map((opt, i) => {
+                            const voteCount = opt.votes?.length || 0;
+                            const pct = totalVotes > 0 ? Math.round((voteCount / totalVotes) * 100) : 0;
+                            const iVoted = (opt.votes || []).includes(profile.name);
+                            return (
+                              <div
+                                key={i}
+                                onClick={() => votePoll(p.id, i)}
+                                style={{
+                                  position: "relative",
+                                  border: iVoted ? "1px solid #FF8A4C" : "1px solid #2E2E33",
+                                  borderRadius: 8,
+                                  padding: "8px 10px",
+                                  marginBottom: 6,
+                                  cursor: "pointer",
+                                  overflow: "hidden",
+                                }}
+                              >
+                                <div style={{ position: "absolute", inset: 0, width: `${pct}%`, background: "rgba(255,138,76,0.14)" }} />
+                                <div style={{ position: "relative", display: "flex", justifyContent: "space-between", fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13, color: "#EDEDEF" }}>
+                                  <span>{opt.text}</span>
+                                  <span style={{ color: "#8B8B93", fontFamily: "'IBM Plex Mono', monospace", fontSize: 11 }}>{pct}%</span>
+                                </div>
+                              </div>
+                            );
+                          });
+                        })()}
+                        <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: "#8B8B93", marginTop: 2 }}>
+                          {p.poll.options.reduce((sum, o) => sum + (o.votes?.length || 0), 0)} votes
+                        </div>
+                      </div>
+                    )}
                     {p.imageUrl && (
                       <img src={p.imageUrl} alt="" style={{ width: "100%", borderRadius: 12, marginBottom: 10, display: "block" }} onError={(e) => (e.target.style.display = "none")} />
                     )}
@@ -1035,7 +1416,7 @@ export default function App() {
                           <div key={i} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
                             <Avatar name={c.author} size={26} photoURL={members[c.author]?.photoURL} />
                             <div style={{ background: "#1C1C1F", borderRadius: 12, padding: "6px 12px", fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13, color: "#EDEDEF" }}>
-                              <span style={{ fontWeight: 600 }}>{c.author}</span> {c.text}
+                              <span style={{ fontWeight: 600 }}>{c.author}</span> {renderWithMentions(c.text, memberNames, openProfile)}
                             </div>
                           </div>
                         ))}
@@ -1408,6 +1789,69 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {reportsPanelOpen && ADMIN_NAMES.includes(profile.name) && (() => {
+        const openReports = reports.filter((r) => !r.resolved && posts.some((p) => p.id === r.postId));
+        return (
+          <div
+            onClick={() => setReportsPanelOpen(false)}
+            style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 60 }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{ width: 400, maxWidth: "92vw", maxHeight: "80vh", overflowY: "auto", background: "#1C1C1F", border: "1px solid #2E2E33", borderRadius: 20, padding: "24px", position: "relative" }}
+            >
+              <button
+                onClick={() => setReportsPanelOpen(false)}
+                style={{ position: "absolute", top: 16, right: 16, background: "none", border: "none", cursor: "pointer", color: "#8B8B93" }}
+              >
+                <X size={18} />
+              </button>
+              <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 20, color: "#EDEDEF", marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
+                <Shield size={18} color="#FF8A4C" /> Reported posts ({openReports.length})
+              </div>
+              {openReports.length === 0 ? (
+                <div style={{ textAlign: "center", color: "#8B8B93", fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13, padding: "24px 0" }}>
+                  Nothing to review right now.
+                </div>
+              ) : (
+                openReports.map((r) => {
+                  const post = posts.find((p) => p.id === r.postId);
+                  return (
+                    <div key={r.id} style={{ border: "1px solid #2E2E33", borderRadius: 12, padding: 14, marginBottom: 10 }}>
+                      <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 12, color: "#8B8B93", marginBottom: 4 }}>
+                        Post by <span style={{ color: "#EDEDEF", fontWeight: 600 }}>{r.postAuthor}</span> · reported by {r.reportedBy}
+                      </div>
+                      <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13, color: "#EDEDEF", marginBottom: 10, lineHeight: 1.4 }}>
+                        {r.postTextSnippet}
+                      </div>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <button
+                          onClick={() => dismissReport(r.id)}
+                          style={{ padding: "6px 14px", borderRadius: 999, border: "1px solid #2E2E33", background: "transparent", color: "#8B8B93", fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 12, cursor: "pointer" }}
+                        >
+                          Dismiss
+                        </button>
+                        {post && (
+                          <button
+                            onClick={() => {
+                              deletePost(post.id, post.author);
+                              dismissReport(r.id);
+                            }}
+                            style={{ padding: "6px 14px", borderRadius: 999, border: "none", background: "#FF8A4C", color: "#16161A", fontFamily: "'IBM Plex Sans', sans-serif", fontWeight: 600, fontSize: 12, cursor: "pointer" }}
+                          >
+                            Delete post
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        );
+      })()}
     </Wrap>
   );
 }

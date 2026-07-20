@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Heart, MessageCircle, Image as ImageIcon, Send, Users, X, Smile, Mail, ArrowLeft, Bell } from "lucide-react";
+import { Heart, MessageCircle, Image as ImageIcon, Send, Users, X, Smile, Mail, ArrowLeft, Bell, Trash2 } from "lucide-react";
 import { db } from "./firebase";
 import {
   collection,
@@ -8,6 +8,7 @@ import {
   getDoc,
   addDoc,
   updateDoc,
+  deleteDoc,
   onSnapshot,
   query,
   orderBy,
@@ -18,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 
-const AVATAR_COLORS = ["#A65D56", "#C98C82", "#8A7E72", "#B08968", "#6E7B6B", "#9C6644"];
+const AVATAR_COLORS = ["#FF8A4C", "#C98C82", "#8B8B93", "#B08968", "#6E7B6B", "#9C6644"];
 const REACTIONS = ["❤️", "😂", "👍", "😮", "😢"];
 const PROFILE_KEY = "huddle-space-profile";
 
@@ -84,7 +85,7 @@ function Avatar({ name, size = 36 }) {
         height: size,
         borderRadius: "50%",
         background: colorFor(name || ""),
-        color: "#F6F1E7",
+        color: "#16161A",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -92,11 +93,24 @@ function Avatar({ name, size = 36 }) {
         fontWeight: 600,
         fontSize: size * 0.42,
         flexShrink: 0,
-        border: "2px solid #F6F1E7",
+        border: "2px solid #16161A",
       }}
     >
       {initial}
     </div>
+  );
+}
+
+function Logo({ size = 28 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 40 40" style={{ flexShrink: 0 }}>
+      <ellipse cx="26.5" cy="26.5" rx="6" ry="10" fill="#FF8A4C" opacity="1" transform="rotate(45 26.5 26.5)" />
+      <ellipse cx="13.5" cy="26.5" rx="6" ry="10" fill="#FF8A4C" opacity="0.8" transform="rotate(-45 13.5 26.5)" />
+      <ellipse cx="13.5" cy="13.5" rx="6" ry="10" fill="#FF8A4C" opacity="0.6" transform="rotate(45 13.5 13.5)" />
+      <ellipse cx="26.5" cy="13.5" rx="6" ry="10" fill="#FF8A4C" opacity="0.4" transform="rotate(-45 26.5 13.5)" />
+      <circle cx="20" cy="20" r="3.4" fill="#121214" />
+      <circle cx="20" cy="20" r="3.4" fill="none" stroke="#FF8A4C" strokeWidth="1.2" />
+    </svg>
   );
 }
 
@@ -303,6 +317,13 @@ export default function App() {
     await updateDoc(doc(db, "posts", postId), { comments: nextComments });
   }
 
+  async function deletePost(postId, author) {
+    if (author !== profile.name) return;
+    const confirmed = window.confirm("Delete this post? This can't be undone.");
+    if (!confirmed) return;
+    await deleteDoc(doc(db, "posts", postId));
+  }
+
   function openConversation(name) {
     if (!name || name === profile.name) return;
     setDmWith(name);
@@ -402,16 +423,17 @@ export default function App() {
             maxWidth: 380,
             margin: "80px auto",
             padding: "40px 36px",
-            background: "#F6F1E7",
+            background: "#1C1C1F",
             borderRadius: 20,
-            border: "1px solid #E9DFCE",
+            border: "1px solid #2E2E33",
             textAlign: "center",
           }}
         >
-          <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 32, color: "#2B2A28", marginBottom: 6 }}>
-            Huddle Space
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginBottom: 6 }}>
+            <Logo size={30} />
+            <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 32, color: "#EDEDEF" }}>Huddle Space</div>
           </div>
-          <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", color: "#8A7E72", fontSize: 14, marginBottom: 28 }}>
+          <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", color: "#8B8B93", fontSize: 14, marginBottom: 28 }}>
             A closed feed for people who already know each other.
           </div>
           <input
@@ -424,7 +446,7 @@ export default function App() {
               boxSizing: "border-box",
               padding: "12px 14px",
               borderRadius: 10,
-              border: "1px solid #E9DFCE",
+              border: "1px solid #2E2E33",
               background: "#fff",
               fontFamily: "'IBM Plex Sans', sans-serif",
               fontSize: 15,
@@ -440,8 +462,8 @@ export default function App() {
               padding: "12px 14px",
               borderRadius: 10,
               border: "none",
-              background: nameInput.trim() ? "#A65D56" : "#E9DFCE",
-              color: "#F6F1E7",
+              background: nameInput.trim() ? "#FF8A4C" : "#2E2E33",
+              color: "#16161A",
               fontFamily: "'IBM Plex Sans', sans-serif",
               fontWeight: 600,
               fontSize: 15,
@@ -464,8 +486,8 @@ export default function App() {
             title="See everyone on Huddle Space"
             style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, marginBottom: 10, cursor: "pointer" }}
           >
-            <Users size={16} color="#8A7E72" />
-            <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: "#8A7E72" }}>{memberNames.length}</span>
+            <Users size={16} color="#8B8B93" />
+            <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: "#8B8B93" }}>{memberNames.length}</span>
           </div>
           <div className="hs-rail-avatars" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {memberNames.map((n) => (
@@ -483,7 +505,10 @@ export default function App() {
 
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 24, flexWrap: "wrap", gap: 10 }}>
-            <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 28, color: "#2B2A28" }}>Huddle Space</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <Logo size={24} />
+              <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 28, color: "#EDEDEF" }}>Huddle Space</div>
+            </div>
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <div style={{ position: "relative" }}>
                 <button
@@ -495,7 +520,7 @@ export default function App() {
                   }}
                   title="Notifications"
                   className="hs-icon-btn"
-                  style={{ background: "none", border: "none", cursor: "pointer", color: "#8A7E72", position: "relative", width: 38, height: 38, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }}
+                  style={{ background: "none", border: "none", cursor: "pointer", color: "#8B8B93", position: "relative", width: 38, height: 38, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }}
                 >
                   <Bell size={18} />
                   {notifications.some((n) => !n.read) && (
@@ -507,8 +532,8 @@ export default function App() {
                         width: 8,
                         height: 8,
                         borderRadius: "50%",
-                        background: "#A65D56",
-                        border: "1px solid #F6F1E7",
+                        background: "#FF8A4C",
+                        border: "1px solid #16161A",
                       }}
                     />
                   )}
@@ -523,14 +548,14 @@ export default function App() {
                       maxHeight: 380,
                       overflowY: "auto",
                       background: "#fff",
-                      border: "1px solid #E9DFCE",
+                      border: "1px solid #2E2E33",
                       borderRadius: 14,
                       boxShadow: "0 8px 24px rgba(43,42,40,0.15)",
                       zIndex: 70,
                     }}
                   >
                     {notifications.length === 0 ? (
-                      <div style={{ padding: 20, textAlign: "center", color: "#8A7E72", fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13 }}>
+                      <div style={{ padding: 20, textAlign: "center", color: "#8B8B93", fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13 }}>
                         No notifications yet.
                       </div>
                     ) : (
@@ -540,13 +565,13 @@ export default function App() {
                           onClick={() => handleNotifClick(n)}
                           style={{
                             padding: "12px 14px",
-                            borderBottom: "1px solid #F0EBE0",
+                            borderBottom: "1px solid #2A2A2D",
                             cursor: "pointer",
-                            background: n.read ? "transparent" : "#F6F1E7",
+                            background: n.read ? "transparent" : "#16161A",
                           }}
                         >
-                          <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13, color: "#2B2A28" }}>{n.message}</div>
-                          <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: "#8A7E72", marginTop: 2 }}>{timeAgo(n.timestamp)}</div>
+                          <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13, color: "#EDEDEF" }}>{n.message}</div>
+                          <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: "#8B8B93", marginTop: 2 }}>{timeAgo(n.timestamp)}</div>
                         </div>
                       ))
                     )}
@@ -560,20 +585,20 @@ export default function App() {
                 }}
                 title="Messages"
                 className="hs-icon-btn"
-                style={{ background: "none", border: "none", cursor: "pointer", color: "#8A7E72", width: 38, height: 38, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }}
+                style={{ background: "none", border: "none", cursor: "pointer", color: "#8B8B93", width: 38, height: 38, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }}
               >
                 <Mail size={18} />
               </button>
               <div
                 onClick={() => openProfile(profile.name)}
-                style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13, color: "#8A7E72", cursor: "pointer", marginLeft: 4 }}
+                style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13, color: "#8B8B93", cursor: "pointer", marginLeft: 4 }}
               >
                 hi, {profile.name}
               </div>
             </div>
           </div>
 
-          <div style={{ background: "#F6F1E7", border: "1px solid #E9DFCE", borderRadius: 18, padding: "20px 20px 16px", marginBottom: 28 }}>
+          <div style={{ background: "#1C1C1F", border: "1px solid #2E2E33", borderRadius: 18, padding: "20px 20px 16px", marginBottom: 28 }}>
             <div style={{ display: "flex", marginBottom: 14, marginLeft: 8 }}>
               {memberNames.slice(0, 6).map((n, i) => (
                 <div
@@ -592,14 +617,14 @@ export default function App() {
                     width: 30,
                     height: 30,
                     borderRadius: "50%",
-                    background: "#E9DFCE",
-                    color: "#8A7E72",
+                    background: "#2E2E33",
+                    color: "#8B8B93",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     fontSize: 11,
                     fontFamily: "'IBM Plex Mono', monospace",
-                    border: "2px solid #F6F1E7",
+                    border: "2px solid #16161A",
                   }}
                 >
                   +{memberNames.length - 6}
@@ -619,7 +644,7 @@ export default function App() {
                 background: "transparent",
                 fontFamily: "'IBM Plex Sans', sans-serif",
                 fontSize: 15,
-                color: "#2B2A28",
+                color: "#EDEDEF",
                 outline: "none",
               }}
             />
@@ -637,7 +662,7 @@ export default function App() {
                     borderRadius: "50%",
                     border: "none",
                     background: "rgba(43,42,40,0.7)",
-                    color: "#F6F1E7",
+                    color: "#16161A",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -649,7 +674,7 @@ export default function App() {
               </div>
             )}
             {imageError && (
-              <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 12, color: "#A65D56", marginTop: 6 }}>{imageError}</div>
+              <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 12, color: "#FF8A4C", marginTop: 6 }}>{imageError}</div>
             )}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 12 }}>
               <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileSelect} style={{ display: "none" }} />
@@ -662,7 +687,7 @@ export default function App() {
                   gap: 6,
                   background: "none",
                   border: "none",
-                  color: "#8A7E72",
+                  color: "#8B8B93",
                   cursor: imageProcessing ? "default" : "pointer",
                   fontFamily: "'IBM Plex Sans', sans-serif",
                   fontSize: 13,
@@ -681,8 +706,8 @@ export default function App() {
                   padding: "9px 18px",
                   borderRadius: 999,
                   border: "none",
-                  background: composeText.trim() ? "#A65D56" : "#E9DFCE",
-                  color: "#F6F1E7",
+                  background: composeText.trim() ? "#FF8A4C" : "#2E2E33",
+                  color: "#16161A",
                   fontFamily: "'IBM Plex Sans', sans-serif",
                   fontWeight: 600,
                   fontSize: 13,
@@ -707,9 +732,9 @@ export default function App() {
                       style={{
                         padding: "6px 14px",
                         borderRadius: 999,
-                        border: feedFilter === f ? "1px solid #A65D56" : "1px solid #E9DFCE",
-                        background: feedFilter === f ? "#A65D56" : "transparent",
-                        color: feedFilter === f ? "#F6F1E7" : "#8A7E72",
+                        border: feedFilter === f ? "1px solid #FF8A4C" : "1px solid #2E2E33",
+                        background: feedFilter === f ? "#FF8A4C" : "transparent",
+                        color: feedFilter === f ? "#16161A" : "#8B8B93",
                         fontFamily: "'IBM Plex Sans', sans-serif",
                         fontSize: 12,
                         fontWeight: 600,
@@ -722,7 +747,7 @@ export default function App() {
                   ))}
                 </div>
                 {visiblePosts.length === 0 ? (
-                  <div style={{ textAlign: "center", padding: "40px 20px", color: "#8A7E72", fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 14 }}>
+                  <div style={{ textAlign: "center", padding: "40px 20px", color: "#8B8B93", fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 14 }}>
                     {feedFilter === "following" ? "Nobody you follow has posted yet." : "Nobody's posted yet. Be the first to say something."}
                   </div>
                 ) : (
@@ -735,22 +760,34 @@ export default function App() {
                 const pickerOpen = reactionPickerOpen[p.id];
                 const commentsOpen = openComments[p.id];
                 return (
-                  <div key={p.id} style={{ background: "#fff", border: "1px solid #E9DFCE", borderRadius: 16, padding: 18 }}>
-                    <div
-                      onClick={() => openProfile(p.author)}
-                      style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 10, cursor: "pointer", width: "fit-content" }}
-                    >
-                      <Avatar name={p.author} size={38} />
-                      <div>
-                        <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontWeight: 600, fontSize: 14, color: "#2B2A28" }}>{p.author}</div>
-                        <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: "#8A7E72" }}>{timeAgo(p.timestamp)}</div>
+                  <div key={p.id} style={{ background: "#fff", border: "1px solid #2E2E33", borderRadius: 16, padding: 18 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                      <div
+                        onClick={() => openProfile(p.author)}
+                        style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 10, cursor: "pointer", width: "fit-content" }}
+                      >
+                        <Avatar name={p.author} size={38} />
+                        <div>
+                          <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontWeight: 600, fontSize: 14, color: "#EDEDEF" }}>{p.author}</div>
+                          <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: "#8B8B93" }}>{timeAgo(p.timestamp)}</div>
+                        </div>
                       </div>
+                      {p.author === profile.name && (
+                        <button
+                          onClick={() => deletePost(p.id, p.author)}
+                          title="Delete post"
+                          className="hs-icon-btn"
+                          style={{ background: "none", border: "none", cursor: "pointer", color: "#5C5C63", width: 32, height: 32, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      )}
                     </div>
                     <div
                       style={{
                         fontFamily: "'IBM Plex Sans', sans-serif",
                         fontSize: 15,
-                        color: "#2B2A28",
+                        color: "#EDEDEF",
                         lineHeight: 1.5,
                         marginBottom: p.imageUrl ? 12 : 4,
                         whiteSpace: "pre-wrap",
@@ -771,13 +808,13 @@ export default function App() {
                                 display: "flex",
                                 alignItems: "center",
                                 gap: 4,
-                                background: "#F6F1E7",
-                                border: myReaction === emoji ? "1px solid #A65D56" : "1px solid #E9DFCE",
+                                background: "#1C1C1F",
+                                border: myReaction === emoji ? "1px solid #FF8A4C" : "1px solid #2E2E33",
                                 borderRadius: 999,
                                 padding: "2px 8px",
                                 fontSize: 12,
                                 fontFamily: "'IBM Plex Mono', monospace",
-                                color: "#2B2A28",
+                                color: "#EDEDEF",
                                 cursor: "pointer",
                               }}
                             >
@@ -791,7 +828,7 @@ export default function App() {
                                   top: "calc(100% + 6px)",
                                   left: 0,
                                   background: "#fff",
-                                  border: "1px solid #E9DFCE",
+                                  border: "1px solid #2E2E33",
                                   borderRadius: 10,
                                   padding: "8px 12px",
                                   boxShadow: "0 4px 16px rgba(43,42,40,0.12)",
@@ -799,7 +836,7 @@ export default function App() {
                                   whiteSpace: "nowrap",
                                   fontFamily: "'IBM Plex Sans', sans-serif",
                                   fontSize: 12,
-                                  color: "#2B2A28",
+                                  color: "#EDEDEF",
                                 }}
                               >
                                 {names.map((n, i) => (
@@ -820,7 +857,7 @@ export default function App() {
                         ))}
                       </div>
                     )}
-                    <div style={{ display: "flex", gap: 18, marginTop: 8, paddingTop: 10, borderTop: "1px solid #F0EBE0", alignItems: "center" }}>
+                    <div style={{ display: "flex", gap: 18, marginTop: 8, paddingTop: 10, borderTop: "1px solid #2A2A2D", alignItems: "center" }}>
                       <div style={{ position: "relative" }}>
                         <button
                           onClick={() => setReactionPickerOpen((o) => ({ ...o, [p.id]: !o[p.id] }))}
@@ -831,7 +868,7 @@ export default function App() {
                             background: "none",
                             border: "none",
                             cursor: "pointer",
-                            color: myReaction ? "#A65D56" : "#8A7E72",
+                            color: myReaction ? "#FF8A4C" : "#8B8B93",
                             fontFamily: "'IBM Plex Sans', sans-serif",
                             fontSize: 13,
                           }}
@@ -846,7 +883,7 @@ export default function App() {
                               bottom: "calc(100% + 8px)",
                               left: 0,
                               background: "#fff",
-                              border: "1px solid #E9DFCE",
+                              border: "1px solid #2E2E33",
                               borderRadius: 999,
                               padding: "6px 8px",
                               display: "flex",
@@ -869,7 +906,7 @@ export default function App() {
                       </div>
                       <button
                         onClick={() => setOpenComments((o) => ({ ...o, [p.id]: !o[p.id] }))}
-                        style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "none", cursor: "pointer", color: "#8A7E72", fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13 }}
+                        style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "none", cursor: "pointer", color: "#8B8B93", fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13 }}
                       >
                         <MessageCircle size={16} />
                         {p.comments.length > 0 ? p.comments.length : ""} Comment{p.comments.length === 1 ? "" : "s"}
@@ -880,7 +917,7 @@ export default function App() {
                         {p.comments.map((c, i) => (
                           <div key={i} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
                             <Avatar name={c.author} size={26} />
-                            <div style={{ background: "#F6F1E7", borderRadius: 12, padding: "6px 12px", fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13, color: "#2B2A28" }}>
+                            <div style={{ background: "#1C1C1F", borderRadius: 12, padding: "6px 12px", fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13, color: "#EDEDEF" }}>
                               <span style={{ fontWeight: 600 }}>{c.author}</span> {c.text}
                             </div>
                           </div>
@@ -891,7 +928,7 @@ export default function App() {
                             onChange={(e) => setCommentDrafts((d) => ({ ...d, [p.id]: e.target.value }))}
                             onKeyDown={(e) => e.key === "Enter" && addComment(p.id)}
                             placeholder="Write a comment…"
-                            style={{ flex: 1, padding: "8px 12px", borderRadius: 999, border: "1px solid #E9DFCE", background: "#F6F1E7", fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13, outline: "none" }}
+                            style={{ flex: 1, padding: "8px 12px", borderRadius: 999, border: "1px solid #2E2E33", background: "#1C1C1F", fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13, outline: "none" }}
                           />
                         </div>
                       </div>
@@ -909,17 +946,17 @@ export default function App() {
 
       {dmPanelOpen && (
         <div onClick={() => setDmPanelOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(43,42,40,0.35)", display: "flex", justifyContent: "flex-end", zIndex: 50 }}>
-          <div onClick={(e) => e.stopPropagation()} style={{ width: 360, maxWidth: "92vw", height: "100%", background: "#F6F1E7", boxShadow: "-6px 0 24px rgba(43,42,40,0.15)", display: "flex", flexDirection: "column" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "16px 18px", borderBottom: "1px solid #E9DFCE" }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: 360, maxWidth: "92vw", height: "100%", background: "#1C1C1F", boxShadow: "-6px 0 24px rgba(43,42,40,0.15)", display: "flex", flexDirection: "column" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "16px 18px", borderBottom: "1px solid #2E2E33" }}>
               {dmWith ? (
-                <button onClick={() => setDmWith(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "#8A7E72", padding: 0 }}>
+                <button onClick={() => setDmWith(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "#8B8B93", padding: 0 }}>
                   <ArrowLeft size={18} />
                 </button>
               ) : (
-                <Mail size={18} color="#8A7E72" />
+                <Mail size={18} color="#8B8B93" />
               )}
-              <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 18, color: "#2B2A28", flex: 1 }}>{dmWith || "Messages"}</div>
-              <button onClick={() => setDmPanelOpen(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "#8A7E72", padding: 0 }}>
+              <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 18, color: "#EDEDEF", flex: 1 }}>{dmWith || "Messages"}</div>
+              <button onClick={() => setDmPanelOpen(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "#8B8B93", padding: 0 }}>
                 <X size={18} />
               </button>
             </div>
@@ -927,14 +964,14 @@ export default function App() {
             {!dmWith ? (
               <div style={{ overflowY: "auto", flex: 1 }}>
                 {memberNames.filter((n) => n !== profile.name).length === 0 ? (
-                  <div style={{ padding: 24, color: "#8A7E72", fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13, textAlign: "center" }}>Nobody else has joined yet.</div>
+                  <div style={{ padding: 24, color: "#8B8B93", fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13, textAlign: "center" }}>Nobody else has joined yet.</div>
                 ) : (
                   memberNames
                     .filter((n) => n !== profile.name)
                     .map((n) => (
-                      <div key={n} onClick={() => openConversation(n)} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 18px", cursor: "pointer", borderBottom: "1px solid #F0EBE0" }}>
+                      <div key={n} onClick={() => openConversation(n)} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 18px", cursor: "pointer", borderBottom: "1px solid #2A2A2D" }}>
                         <Avatar name={n} size={34} />
-                        <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 14, color: "#2B2A28" }}>{n}</div>
+                        <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 14, color: "#EDEDEF" }}>{n}</div>
                       </div>
                     ))
                 )}
@@ -943,7 +980,7 @@ export default function App() {
               <>
                 <div ref={dmScrollRef} style={{ flex: 1, overflowY: "auto", padding: "14px 18px", display: "flex", flexDirection: "column", gap: 10 }}>
                   {dmMessages.length === 0 ? (
-                    <div style={{ textAlign: "center", color: "#8A7E72", fontSize: 13, fontFamily: "'IBM Plex Sans', sans-serif", marginTop: 20 }}>No messages yet. Say hi to {dmWith}.</div>
+                    <div style={{ textAlign: "center", color: "#8B8B93", fontSize: 13, fontFamily: "'IBM Plex Sans', sans-serif", marginTop: 20 }}>No messages yet. Say hi to {dmWith}.</div>
                   ) : (
                     dmMessages.map((m, i) => {
                       const mine = m.from === profile.name;
@@ -952,9 +989,9 @@ export default function App() {
                           <div
                             style={{
                               maxWidth: "78%",
-                              background: mine ? "#A65D56" : "#fff",
-                              color: mine ? "#F6F1E7" : "#2B2A28",
-                              border: mine ? "none" : "1px solid #E9DFCE",
+                              background: mine ? "#FF8A4C" : "#fff",
+                              color: mine ? "#16161A" : "#EDEDEF",
+                              border: mine ? "none" : "1px solid #2E2E33",
                               borderRadius: 14,
                               padding: "8px 12px",
                               fontFamily: "'IBM Plex Sans', sans-serif",
@@ -969,18 +1006,18 @@ export default function App() {
                     })
                   )}
                 </div>
-                <div style={{ display: "flex", gap: 8, padding: "12px 18px", borderTop: "1px solid #E9DFCE" }}>
+                <div style={{ display: "flex", gap: 8, padding: "12px 18px", borderTop: "1px solid #2E2E33" }}>
                   <input
                     value={dmDraft}
                     onChange={(e) => setDmDraft(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && sendDm()}
                     placeholder="Write a message…"
-                    style={{ flex: 1, padding: "9px 12px", borderRadius: 999, border: "1px solid #E9DFCE", background: "#fff", fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13, outline: "none" }}
+                    style={{ flex: 1, padding: "9px 12px", borderRadius: 999, border: "1px solid #2E2E33", background: "#fff", fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13, outline: "none" }}
                   />
                   <button
                     onClick={sendDm}
                     disabled={!dmDraft.trim()}
-                    style={{ width: 36, height: 36, borderRadius: "50%", border: "none", background: dmDraft.trim() ? "#A65D56" : "#E9DFCE", color: "#F6F1E7", display: "flex", alignItems: "center", justifyContent: "center", cursor: dmDraft.trim() ? "pointer" : "default", flexShrink: 0 }}
+                    style={{ width: 36, height: 36, borderRadius: "50%", border: "none", background: dmDraft.trim() ? "#FF8A4C" : "#2E2E33", color: "#16161A", display: "flex", alignItems: "center", justifyContent: "center", cursor: dmDraft.trim() ? "pointer" : "default", flexShrink: 0 }}
                   >
                     <Send size={14} />
                   </button>
@@ -1014,23 +1051,23 @@ export default function App() {
           >
             <div
               onClick={(e) => e.stopPropagation()}
-              style={{ width: 360, maxWidth: "90vw", maxHeight: "80vh", overflowY: "auto", background: "#F6F1E7", borderRadius: 20, padding: "28px 24px", position: "relative" }}
+              style={{ width: 360, maxWidth: "90vw", maxHeight: "80vh", overflowY: "auto", background: "#1C1C1F", borderRadius: 20, padding: "28px 24px", position: "relative" }}
             >
               {listToShow ? (
                 <div>
                   <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
                     <button
                       onClick={() => setProfileListView(null)}
-                      style={{ background: "none", border: "none", cursor: "pointer", color: "#8A7E72", padding: 0 }}
+                      style={{ background: "none", border: "none", cursor: "pointer", color: "#8B8B93", padding: 0 }}
                     >
                       <ArrowLeft size={18} />
                     </button>
-                    <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 18, color: "#2B2A28" }}>
+                    <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 18, color: "#EDEDEF" }}>
                       {profileListView === "followers" ? "Followers" : "Following"}
                     </div>
                   </div>
                   {listToShow.length === 0 ? (
-                    <div style={{ textAlign: "center", color: "#8A7E72", fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13, padding: "20px 0" }}>
+                    <div style={{ textAlign: "center", color: "#8B8B93", fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13, padding: "20px 0" }}>
                       {profileListView === "followers" ? "No followers yet." : "Not following anyone yet."}
                     </div>
                   ) : (
@@ -1041,7 +1078,7 @@ export default function App() {
                         style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 4px", cursor: "pointer" }}
                       >
                         <Avatar name={n} size={34} />
-                        <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 14, color: "#2B2A28" }}>{n}</div>
+                        <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 14, color: "#EDEDEF" }}>{n}</div>
                       </div>
                     ))
                   )}
@@ -1050,15 +1087,15 @@ export default function App() {
                 <>
                   <button
                     onClick={() => setProfilePanelOpen(false)}
-                    style={{ position: "absolute", top: 16, right: 16, background: "none", border: "none", cursor: "pointer", color: "#8A7E72" }}
+                    style={{ position: "absolute", top: 16, right: 16, background: "none", border: "none", cursor: "pointer", color: "#8B8B93" }}
                   >
                     <X size={18} />
                   </button>
                   <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center" }}>
                     <Avatar name={profileName} size={64} />
-                    <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 22, color: "#2B2A28", marginTop: 12 }}>
+                    <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 22, color: "#EDEDEF", marginTop: 12 }}>
                       {profileName}
-                      {isOwnProfile && <span style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontStyle: "normal", fontSize: 12, color: "#8A7E72" }}> (you)</span>}
+                      {isOwnProfile && <span style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontStyle: "normal", fontSize: 12, color: "#8B8B93" }}> (you)</span>}
                     </div>
 
                     {editingBio ? (
@@ -1074,7 +1111,7 @@ export default function App() {
                             boxSizing: "border-box",
                             padding: "8px 10px",
                             borderRadius: 10,
-                            border: "1px solid #E9DFCE",
+                            border: "1px solid #2E2E33",
                             fontFamily: "'IBM Plex Sans', sans-serif",
                             fontSize: 13,
                             resize: "none",
@@ -1084,40 +1121,40 @@ export default function App() {
                         <div style={{ display: "flex", gap: 8, marginTop: 8, justifyContent: "center" }}>
                           <button
                             onClick={() => setEditingBio(false)}
-                            style={{ padding: "6px 14px", borderRadius: 999, border: "1px solid #E9DFCE", background: "transparent", color: "#8A7E72", fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 12, cursor: "pointer" }}
+                            style={{ padding: "6px 14px", borderRadius: 999, border: "1px solid #2E2E33", background: "transparent", color: "#8B8B93", fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 12, cursor: "pointer" }}
                           >
                             Cancel
                           </button>
                           <button
                             onClick={saveBio}
-                            style={{ padding: "6px 14px", borderRadius: 999, border: "none", background: "#A65D56", color: "#F6F1E7", fontFamily: "'IBM Plex Sans', sans-serif", fontWeight: 600, fontSize: 12, cursor: "pointer" }}
+                            style={{ padding: "6px 14px", borderRadius: 999, border: "none", background: "#FF8A4C", color: "#16161A", fontFamily: "'IBM Plex Sans', sans-serif", fontWeight: 600, fontSize: 12, cursor: "pointer" }}
                           >
                             Save
                           </button>
                         </div>
                       </div>
                     ) : (
-                      <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13, color: targetMember.bio ? "#2B2A28" : "#B7ADA0", marginTop: 8, lineHeight: 1.5 }}>
+                      <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13, color: targetMember.bio ? "#EDEDEF" : "#5C5C63", marginTop: 8, lineHeight: 1.5 }}>
                         {targetMember.bio || (isOwnProfile ? "No bio yet — add one below." : "No bio yet.")}
                       </div>
                     )}
 
-                    <div style={{ display: "flex", gap: 18, marginTop: 18, paddingTop: 16, borderTop: "1px solid #E9DFCE", width: "100%", justifyContent: "center" }}>
+                    <div style={{ display: "flex", gap: 18, marginTop: 18, paddingTop: 16, borderTop: "1px solid #2E2E33", width: "100%", justifyContent: "center" }}>
                       <div style={{ textAlign: "center" }}>
-                        <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontWeight: 700, fontSize: 15, color: "#2B2A28" }}>{postCount}</div>
-                        <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: "#8A7E72" }}>Posts</div>
+                        <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontWeight: 700, fontSize: 15, color: "#EDEDEF" }}>{postCount}</div>
+                        <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: "#8B8B93" }}>Posts</div>
                       </div>
                       <div style={{ textAlign: "center" }}>
-                        <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontWeight: 700, fontSize: 15, color: "#2B2A28" }}>{reactionsReceived}</div>
-                        <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: "#8A7E72" }}>Reactions</div>
+                        <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontWeight: 700, fontSize: 15, color: "#EDEDEF" }}>{reactionsReceived}</div>
+                        <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: "#8B8B93" }}>Reactions</div>
                       </div>
                       <div style={{ textAlign: "center", cursor: "pointer" }} onClick={() => setProfileListView("followers")}>
-                        <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontWeight: 700, fontSize: 15, color: "#2B2A28" }}>{followersCount}</div>
-                        <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: "#8A7E72", textDecoration: "underline" }}>Followers</div>
+                        <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontWeight: 700, fontSize: 15, color: "#EDEDEF" }}>{followersCount}</div>
+                        <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: "#8B8B93", textDecoration: "underline" }}>Followers</div>
                       </div>
                       <div style={{ textAlign: "center", cursor: "pointer" }} onClick={() => setProfileListView("following")}>
-                        <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontWeight: 700, fontSize: 15, color: "#2B2A28" }}>{followingCount}</div>
-                        <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: "#8A7E72", textDecoration: "underline" }}>Following</div>
+                        <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontWeight: 700, fontSize: 15, color: "#EDEDEF" }}>{followingCount}</div>
+                        <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: "#8B8B93", textDecoration: "underline" }}>Following</div>
                       </div>
                     </div>
 
@@ -1126,7 +1163,7 @@ export default function App() {
                         !editingBio && (
                           <button
                             onClick={startEditBio}
-                            style={{ padding: "8px 16px", borderRadius: 999, border: "1px solid #E9DFCE", background: "transparent", color: "#2B2A28", fontFamily: "'IBM Plex Sans', sans-serif", fontWeight: 600, fontSize: 12, cursor: "pointer" }}
+                            style={{ padding: "8px 16px", borderRadius: 999, border: "1px solid #2E2E33", background: "transparent", color: "#EDEDEF", fontFamily: "'IBM Plex Sans', sans-serif", fontWeight: 600, fontSize: 12, cursor: "pointer" }}
                           >
                             Edit bio
                           </button>
@@ -1138,9 +1175,9 @@ export default function App() {
                             style={{
                               padding: "8px 16px",
                               borderRadius: 999,
-                              border: iFollowThem ? "1px solid #E9DFCE" : "none",
-                              background: iFollowThem ? "transparent" : "#A65D56",
-                              color: iFollowThem ? "#2B2A28" : "#F6F1E7",
+                              border: iFollowThem ? "1px solid #2E2E33" : "none",
+                              background: iFollowThem ? "transparent" : "#FF8A4C",
+                              color: iFollowThem ? "#EDEDEF" : "#16161A",
                               fontFamily: "'IBM Plex Sans', sans-serif",
                               fontWeight: 600,
                               fontSize: 12,
@@ -1154,7 +1191,7 @@ export default function App() {
                               setProfilePanelOpen(false);
                               openConversation(profileName);
                             }}
-                            style={{ padding: "8px 16px", borderRadius: 999, border: "1px solid #E9DFCE", background: "transparent", color: "#2B2A28", fontFamily: "'IBM Plex Sans', sans-serif", fontWeight: 600, fontSize: 12, cursor: "pointer" }}
+                            style={{ padding: "8px 16px", borderRadius: 999, border: "1px solid #2E2E33", background: "transparent", color: "#EDEDEF", fontFamily: "'IBM Plex Sans', sans-serif", fontWeight: 600, fontSize: 12, cursor: "pointer" }}
                           >
                             Message
                           </button>
@@ -1176,15 +1213,15 @@ export default function App() {
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            style={{ width: 360, maxWidth: "90vw", maxHeight: "80vh", overflowY: "auto", background: "#F6F1E7", borderRadius: 20, padding: "24px", position: "relative" }}
+            style={{ width: 360, maxWidth: "90vw", maxHeight: "80vh", overflowY: "auto", background: "#1C1C1F", borderRadius: 20, padding: "24px", position: "relative" }}
           >
             <button
               onClick={() => setMembersDirectoryOpen(false)}
-              style={{ position: "absolute", top: 16, right: 16, background: "none", border: "none", cursor: "pointer", color: "#8A7E72" }}
+              style={{ position: "absolute", top: 16, right: 16, background: "none", border: "none", cursor: "pointer", color: "#8B8B93" }}
             >
               <X size={18} />
             </button>
-            <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 20, color: "#2B2A28", marginBottom: 16 }}>
+            <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 20, color: "#EDEDEF", marginBottom: 16 }}>
               Everyone on Huddle Space ({memberNames.length})
             </div>
             {memberNames.map((n) => (
@@ -1197,9 +1234,9 @@ export default function App() {
                 style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 4px", cursor: "pointer" }}
               >
                 <Avatar name={n} size={34} />
-                <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 14, color: "#2B2A28" }}>
+                <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 14, color: "#EDEDEF" }}>
                   {n}
-                  {n === profile.name && <span style={{ color: "#8A7E72" }}> (you)</span>}
+                  {n === profile.name && <span style={{ color: "#8B8B93" }}> (you)</span>}
                 </div>
               </div>
             ))}
@@ -1212,14 +1249,14 @@ export default function App() {
 
 function Wrap({ children }) {
   return (
-    <div style={{ minHeight: "100vh", background: "#F0EBE0" }}>
+    <div style={{ minHeight: "100vh", background: "#121214" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,600;1,500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
         * { box-sizing: border-box; margin: 0; }
         body { margin: 0; }
-        input::placeholder, textarea::placeholder { color: #B7ADA0; }
+        input::placeholder, textarea::placeholder { color: #5C5C63; }
         .hs-icon-btn { transition: background 0.15s ease; }
-        .hs-icon-btn:hover { background: #EFE8DA; }
+        .hs-icon-btn:hover { background: #232327; }
 
         @media (max-width: 640px) {
           .hs-layout {

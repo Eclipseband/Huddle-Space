@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Heart, MessageCircle, Image as ImageIcon, Send, Users, X, Smile, Mail, ArrowLeft } from "lucide-react";
+import { Heart, MessageCircle, Image as ImageIcon, Send, Users, X, Smile, Mail, ArrowLeft, Bell } from "lucide-react";
 import { db } from "./firebase";
 import {
   collection,
@@ -11,6 +11,7 @@ import {
   onSnapshot,
   query,
   orderBy,
+  where,
   serverTimestamp,
   arrayUnion,
   arrayRemove,
@@ -120,6 +121,8 @@ export default function App() {
   const [editingBio, setEditingBio] = useState(false);
   const [bioDraft, setBioDraft] = useState("");
   const [feedFilter, setFeedFilter] = useState("all");
+  const [notifications, setNotifications] = useState([]);
+  const [notifPanelOpen, setNotifPanelOpen] = useState(false);
   const fileInputRef = useRef(null);
   const dmScrollRef = useRef(null);
 
@@ -141,6 +144,21 @@ export default function App() {
     });
     return () => unsub();
   }, []);
+
+  // Notifications: realtime listener for this user (sorted client-side to avoid needing a composite index)
+  useEffect(() => {
+    if (!profile) return;
+    const q = query(collection(db, "notifications"), where("to", "==", profile.name));
+    const unsub = onSnapshot(q, (snap) => {
+      const list = snap.docs.map((d) => {
+        const data = d.data();
+        return { id: d.id, ...data };
+      });
+      list.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+      setNotifications(list);
+    });
+    return () => unsub();
+  }, [profile]);
 
   // Posts: realtime listener, newest first
   useEffect(() => {
@@ -185,6 +203,16 @@ export default function App() {
     localStorage.setItem(PROFILE_KEY, JSON.stringify(newProfile));
     setProfile(newProfile);
     setDoc(doc(db, "members", name), { joinedAt: Date.now(), bio: "", following: [] });
+    Object.keys(members).forEach((n) => {
+      addDoc(collection(db, "notifications"), {
+        to: n,
+        type: "join",
+        from: name,
+        message: `${name} joined Huddle Space`,
+        timestamp: Date.now(),
+        read: false,
+      });
+    });
   }
 
   async function handleFileSelect(e) {
@@ -224,6 +252,18 @@ export default function App() {
         reactions: {},
         comments: [],
       });
+      memberNames
+        .filter((n) => n !== profile.name && (members[n]?.following || []).includes(profile.name))
+        .forEach((n) => {
+          addDoc(collection(db, "notifications"), {
+            to: n,
+            type: "post",
+            from: profile.name,
+            message: `${profile.name} posted something new`,
+            timestamp: Date.now(),
+            read: false,
+          });
+        });
       setComposeText("");
       setComposeImage(null);
       setImageError("");
@@ -276,9 +316,28 @@ export default function App() {
   async function toggleFollow(targetName) {
     const myFollowing = members[profile.name]?.following || [];
     const isFollowing = myFollowing.includes(targetName);
+    setMembers((prev) => {
+      const mine = prev[profile.name] || { bio: "", following: [] };
+      const nextFollowing = isFollowing
+        ? (mine.following || []).filter((n) => n !== targetName)
+        : [...(mine.following || []), targetName];
+      return { ...prev, [profile.name]: { ...mine, following: nextFollowing } };
+    });
     await updateDoc(doc(db, "members", profile.name), {
       following: isFollowing ? arrayRemove(targetName) : arrayUnion(targetName),
     });
+  }
+
+  function markNotificationsRead() {
+    notifications.filter((n) => !n.read).forEach((n) => {
+      updateDoc(doc(db, "notifications", n.id), { read: true });
+    });
+  }
+
+  function handleNotifClick(n) {
+    setNotifPanelOpen(false);
+    if (n.type === "dm") openConversation(n.from);
+    else openProfile(n.from);
   }
 
   function startEditBio() {
@@ -302,6 +361,14 @@ export default function App() {
     const existing = snap.exists() ? snap.data().messages || [] : [];
     await setDoc(ref_, {
       messages: [...existing, { from: profile.name, text, timestamp: Date.now() }],
+    });
+    addDoc(collection(db, "notifications"), {
+      to: dmWith,
+      type: "dm",
+      from: profile.name,
+      message: `${profile.name} sent you a message`,
+      timestamp: Date.now(),
+      read: false,
     });
   }
 
@@ -394,6 +461,73 @@ export default function App() {
           <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 24 }}>
             <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 28, color: "#2B2A28" }}>Huddle Space</div>
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+              <div style={{ position: "relative" }}>
+                <button
+                  onClick={() => {
+                    setNotifPanelOpen((o) => {
+                      if (!o) markNotificationsRead();
+                      return !o;
+                    });
+                  }}
+                  title="Notifications"
+                  style={{ background: "none", border: "none", cursor: "pointer", color: "#8A7E72", position: "relative" }}
+                >
+                  <Bell size={17} />
+                  {notifications.some((n) => !n.read) && (
+                    <span
+                      style={{
+                        position: "absolute",
+                        top: -3,
+                        right: -3,
+                        width: 8,
+                        height: 8,
+                        borderRadius: "50%",
+                        background: "#A65D56",
+                        border: "1px solid #F6F1E7",
+                      }}
+                    />
+                  )}
+                </button>
+                {notifPanelOpen && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "calc(100% + 10px)",
+                      right: 0,
+                      width: 300,
+                      maxHeight: 380,
+                      overflowY: "auto",
+                      background: "#fff",
+                      border: "1px solid #E9DFCE",
+                      borderRadius: 14,
+                      boxShadow: "0 8px 24px rgba(43,42,40,0.15)",
+                      zIndex: 70,
+                    }}
+                  >
+                    {notifications.length === 0 ? (
+                      <div style={{ padding: 20, textAlign: "center", color: "#8A7E72", fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13 }}>
+                        No notifications yet.
+                      </div>
+                    ) : (
+                      notifications.map((n) => (
+                        <div
+                          key={n.id}
+                          onClick={() => handleNotifClick(n)}
+                          style={{
+                            padding: "12px 14px",
+                            borderBottom: "1px solid #F0EBE0",
+                            cursor: "pointer",
+                            background: n.read ? "transparent" : "#F6F1E7",
+                          }}
+                        >
+                          <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13, color: "#2B2A28" }}>{n.message}</div>
+                          <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: "#8A7E72", marginTop: 2 }}>{timeAgo(n.timestamp)}</div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
               <button
                 onClick={() => {
                   setDmWith(null);

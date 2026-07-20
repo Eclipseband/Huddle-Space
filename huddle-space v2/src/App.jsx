@@ -22,6 +22,7 @@ import {
 const AVATAR_COLORS = ["#FF8A4C", "#C98C82", "#8B8B93", "#B08968", "#6E7B6B", "#9C6644"];
 const REACTIONS = ["❤️", "😂", "👍", "😮", "😢"];
 const PROFILE_KEY = "huddle-space-profile";
+const ADMIN_NAMES = ["John#6"];
 
 function colorFor(name) {
   let h = 0;
@@ -318,8 +319,10 @@ export default function App() {
   }
 
   async function deletePost(postId, author) {
-    if (author !== profile.name) return;
-    const confirmed = window.confirm("Delete this post? This can't be undone.");
+    const isAdmin = ADMIN_NAMES.includes(profile.name);
+    if (author !== profile.name && !isAdmin) return;
+    const message = author === profile.name ? "Delete this post? This can't be undone." : `Delete ${author}'s post as an admin? This can't be undone.`;
+    const confirmed = window.confirm(message);
     if (!confirmed) return;
     await deleteDoc(doc(db, "posts", postId));
   }
@@ -772,12 +775,24 @@ export default function App() {
                           <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: "#8B8B93" }}>{timeAgo(p.timestamp)}</div>
                         </div>
                       </div>
-                      {p.author === profile.name && (
+                      {(p.author === profile.name || ADMIN_NAMES.includes(profile.name)) && (
                         <button
                           onClick={() => deletePost(p.id, p.author)}
-                          title="Delete post"
+                          title={p.author === profile.name ? "Delete post" : "Delete post (admin)"}
                           className="hs-icon-btn"
-                          style={{ background: "none", border: "none", cursor: "pointer", color: "#5C5C63", width: 32, height: 32, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
+                          style={{
+                            background: "none",
+                            border: "none",
+                            cursor: "pointer",
+                            color: p.author === profile.name ? "#5C5C63" : "#FF8A4C",
+                            width: 32,
+                            height: 32,
+                            borderRadius: "50%",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            flexShrink: 0,
+                          }}
                         >
                           <Trash2 size={15} />
                         </button>
@@ -1096,6 +1111,23 @@ export default function App() {
                     <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 22, color: "#EDEDEF", marginTop: 12 }}>
                       {profileName}
                       {isOwnProfile && <span style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontStyle: "normal", fontSize: 12, color: "#8B8B93" }}> (you)</span>}
+                      {ADMIN_NAMES.includes(profileName) && (
+                        <span
+                          style={{
+                            fontFamily: "'IBM Plex Mono', monospace",
+                            fontStyle: "normal",
+                            fontSize: 10,
+                            color: "#FF8A4C",
+                            border: "1px solid #FF8A4C",
+                            borderRadius: 999,
+                            padding: "2px 8px",
+                            marginLeft: 8,
+                            verticalAlign: "middle",
+                          }}
+                        >
+                          ADMIN
+                        </span>
+                      )}
                     </div>
 
                     {editingBio ? (

@@ -77,26 +77,23 @@ function convKey(a, b) {
   return [a, b].sort().join("__");
 }
 
-function Avatar({ name, size = 36, photoURL }) {
+function Avatar({ name, size = 36, photoURL, online }) {
   const initial = name?.[0]?.toUpperCase() || "?";
-  if (photoURL) {
-    return (
-      <img
-        src={photoURL}
-        alt={name}
-        style={{
-          width: size,
-          height: size,
-          borderRadius: "50%",
-          objectFit: "cover",
-          flexShrink: 0,
-          border: "2px solid #16161A",
-          display: "block",
-        }}
-      />
-    );
-  }
-  return (
+  const content = photoURL ? (
+    <img
+      src={photoURL}
+      alt={name}
+      style={{
+        width: size,
+        height: size,
+        borderRadius: "50%",
+        objectFit: "cover",
+        flexShrink: 0,
+        border: "2px solid #16161A",
+        display: "block",
+      }}
+    />
+  ) : (
     <div
       style={{
         width: size,
@@ -115,6 +112,26 @@ function Avatar({ name, size = 36, photoURL }) {
       }}
     >
       {initial}
+    </div>
+  );
+
+  if (online === undefined) return content;
+
+  return (
+    <div style={{ position: "relative", width: size, height: size, flexShrink: 0 }}>
+      {content}
+      <span
+        style={{
+          position: "absolute",
+          bottom: -1,
+          right: -1,
+          width: Math.max(9, size * 0.26),
+          height: Math.max(9, size * 0.26),
+          borderRadius: "50%",
+          background: online ? "#4ADE80" : "#5C5C63",
+          border: "2px solid #16161A",
+        }}
+      />
     </div>
   );
 }
@@ -181,6 +198,37 @@ export default function App() {
     });
     return () => unsub();
   }, []);
+
+  // Presence: heartbeat marks you active; other members read this to show an online dot
+  useEffect(() => {
+    if (!profile) return;
+    const beat = () => setDoc(doc(db, "members", profile.name), { lastActive: Date.now() }, { merge: true });
+    beat();
+    const interval = setInterval(beat, 45000);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") beat();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+    };
+  }, [profile]);
+
+  // Ticks periodically so "online" status re-evaluates even without new Firestore events
+  const [presenceTick, setPresenceTick] = useState(0);
+  useEffect(() => {
+    const interval = setInterval(() => setPresenceTick((t) => t + 1), 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  function isOnline(name) {
+    void presenceTick;
+    const t = members[name]?.lastActive;
+    return !!t && Date.now() - t < 90000;
+  }
 
   // Notifications: realtime listener for this user (sorted client-side to avoid needing a composite index)
   useEffect(() => {
@@ -325,6 +373,16 @@ export default function App() {
     }
     setReactionPickerOpen((o) => ({ ...o, [postId]: false }));
     await updateDoc(doc(db, "posts", postId), { reactions });
+    if (!alreadyHadThis && post.author !== profile.name) {
+      addDoc(collection(db, "notifications"), {
+        to: post.author,
+        type: "post",
+        from: profile.name,
+        message: `${profile.name} reacted ${emoji} to your post`,
+        timestamp: Date.now(),
+        read: false,
+      });
+    }
   }
 
   async function addComment(postId) {
@@ -335,6 +393,16 @@ export default function App() {
     const nextComments = [...(post.comments || []), { author: profile.name, text, timestamp: Date.now() }];
     setCommentDrafts((d) => ({ ...d, [postId]: "" }));
     await updateDoc(doc(db, "posts", postId), { comments: nextComments });
+    if (post.author !== profile.name) {
+      addDoc(collection(db, "notifications"), {
+        to: post.author,
+        type: "post",
+        from: profile.name,
+        message: `${profile.name} commented on your post`,
+        timestamp: Date.now(),
+        read: false,
+      });
+    }
   }
 
   async function deletePost(postId, author) {
@@ -534,7 +602,7 @@ export default function App() {
                 onClick={() => openProfile(n)}
                 style={{ cursor: "pointer", opacity: n === profile.name ? 0.55 : 1 }}
               >
-                <Avatar name={n} size={32} photoURL={members[n]?.photoURL} />
+                <Avatar name={n} size={32} photoURL={members[n]?.photoURL} online={isOnline(n)} />
               </div>
             ))}
           </div>
@@ -644,7 +712,7 @@ export default function App() {
                   title={n === profile.name ? `${n} (you)` : `View ${n}'s profile`}
                   style={{ marginLeft: -8, transform: `rotate(${(i % 3) - 1}deg)`, zIndex: 6 - i, cursor: "pointer" }}
                 >
-                  <Avatar name={n} size={30} photoURL={members[n]?.photoURL} />
+                  <Avatar name={n} size={30} photoURL={members[n]?.photoURL} online={isOnline(n)} />
                 </div>
               ))}
               {memberNames.length > 6 && (
@@ -803,7 +871,7 @@ export default function App() {
                         onClick={() => openProfile(p.author)}
                         style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 10, cursor: "pointer", width: "fit-content" }}
                       >
-                        <Avatar name={p.author} size={38} photoURL={members[p.author]?.photoURL} />
+                        <Avatar name={p.author} size={38} photoURL={members[p.author]?.photoURL} online={isOnline(p.author)} />
                         <div>
                           <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontWeight: 600, fontSize: 14, color: "#EDEDEF" }}>{p.author}</div>
                           <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: "#8B8B93" }}>{timeAgo(p.timestamp)}</div>
@@ -1019,7 +1087,7 @@ export default function App() {
                     .filter((n) => n !== profile.name)
                     .map((n) => (
                       <div key={n} onClick={() => openConversation(n)} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 18px", cursor: "pointer", borderBottom: "1px solid #2A2A2D" }}>
-                        <Avatar name={n} size={34} photoURL={members[n]?.photoURL} />
+                        <Avatar name={n} size={34} photoURL={members[n]?.photoURL} online={isOnline(n)} />
                         <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 14, color: "#EDEDEF" }}>{n}</div>
                       </div>
                     ))
@@ -1126,7 +1194,7 @@ export default function App() {
                         onClick={() => openProfile(n)}
                         style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 4px", cursor: "pointer" }}
                       >
-                        <Avatar name={n} size={34} photoURL={members[n]?.photoURL} />
+                        <Avatar name={n} size={34} photoURL={members[n]?.photoURL} online={isOnline(n)} />
                         <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 14, color: "#EDEDEF" }}>{n}</div>
                       </div>
                     ))
@@ -1168,7 +1236,7 @@ export default function App() {
                         <input ref={avatarFileInputRef} type="file" accept="image/*" onChange={handleAvatarSelect} style={{ display: "none" }} />
                       </div>
                     ) : (
-                      <Avatar name={profileName} size={64} photoURL={targetMember.photoURL} />
+                      <Avatar name={profileName} size={64} photoURL={targetMember.photoURL} online={isOnline(profileName)} />
                     )}
                     {avatarUploading && (
                       <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: "#8B8B93", marginTop: 4 }}>Uploading…</div>
@@ -1330,7 +1398,7 @@ export default function App() {
                 }}
                 style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 4px", cursor: "pointer" }}
               >
-                <Avatar name={n} size={34} photoURL={members[n]?.photoURL} />
+                <Avatar name={n} size={34} photoURL={members[n]?.photoURL} online={isOnline(n)} />
                 <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 14, color: "#EDEDEF" }}>
                   {n}
                   {n === profile.name && <span style={{ color: "#8B8B93" }}> (you)</span>}

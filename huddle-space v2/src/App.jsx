@@ -326,6 +326,16 @@ export default function App() {
     await updateDoc(doc(db, "members", profile.name), {
       following: isFollowing ? arrayRemove(targetName) : arrayUnion(targetName),
     });
+    if (!isFollowing) {
+      addDoc(collection(db, "notifications"), {
+        to: targetName,
+        type: "follow",
+        from: profile.name,
+        message: `${profile.name} started following you`,
+        timestamp: Date.now(),
+        read: false,
+      });
+    }
   }
 
   function markNotificationsRead() {
@@ -437,13 +447,13 @@ export default function App() {
 
   return (
     <Wrap>
-      <div style={{ display: "flex", maxWidth: 780, margin: "0 auto", gap: 24, padding: "32px 16px" }}>
-        <div style={{ width: 64, flexShrink: 0, paddingTop: 6 }}>
+      <div className="hs-layout" style={{ display: "flex", gap: 24, maxWidth: 780, margin: "0 auto", padding: "32px 16px" }}>
+        <div className="hs-rail" style={{ width: 64, flexShrink: 0, paddingTop: 6 }}>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, marginBottom: 10 }}>
             <Users size={16} color="#8A7E72" />
             <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: "#8A7E72" }}>{memberNames.length}</span>
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <div className="hs-rail-avatars" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {memberNames.map((n) => (
               <div
                 key={n}
@@ -458,9 +468,9 @@ export default function App() {
         </div>
 
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 24 }}>
+          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 24, flexWrap: "wrap", gap: 10 }}>
             <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 28, color: "#2B2A28" }}>Huddle Space</div>
-            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <div style={{ position: "relative" }}>
                 <button
                   onClick={() => {
@@ -470,15 +480,16 @@ export default function App() {
                     });
                   }}
                   title="Notifications"
-                  style={{ background: "none", border: "none", cursor: "pointer", color: "#8A7E72", position: "relative" }}
+                  className="hs-icon-btn"
+                  style={{ background: "none", border: "none", cursor: "pointer", color: "#8A7E72", position: "relative", width: 38, height: 38, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }}
                 >
-                  <Bell size={17} />
+                  <Bell size={18} />
                   {notifications.some((n) => !n.read) && (
                     <span
                       style={{
                         position: "absolute",
-                        top: -3,
-                        right: -3,
+                        top: 6,
+                        right: 7,
                         width: 8,
                         height: 8,
                         borderRadius: "50%",
@@ -534,11 +545,17 @@ export default function App() {
                   setDmPanelOpen(true);
                 }}
                 title="Messages"
-                style={{ background: "none", border: "none", cursor: "pointer", color: "#8A7E72" }}
+                className="hs-icon-btn"
+                style={{ background: "none", border: "none", cursor: "pointer", color: "#8A7E72", width: 38, height: 38, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }}
               >
-                <Mail size={17} />
+                <Mail size={18} />
               </button>
-              <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13, color: "#8A7E72" }}>hi, {profile.name}</div>
+              <div
+                onClick={() => openProfile(profile.name)}
+                style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13, color: "#8A7E72", cursor: "pointer", marginLeft: 4 }}
+              >
+                hi, {profile.name}
+              </div>
             </div>
           </div>
 
@@ -1078,6 +1095,28 @@ function Wrap({ children }) {
         * { box-sizing: border-box; margin: 0; }
         body { margin: 0; }
         input::placeholder, textarea::placeholder { color: #B7ADA0; }
+        .hs-icon-btn { transition: background 0.15s ease; }
+        .hs-icon-btn:hover { background: #EFE8DA; }
+
+        @media (max-width: 640px) {
+          .hs-layout {
+            flex-direction: column !important;
+            padding: 16px 12px !important;
+            gap: 12px !important;
+          }
+          .hs-rail {
+            width: 100% !important;
+            padding-top: 0 !important;
+            display: flex !important;
+            align-items: center !important;
+            gap: 10px !important;
+          }
+          .hs-rail-avatars {
+            flex-direction: row !important;
+            overflow-x: auto;
+            padding-bottom: 4px;
+          }
+        }
       `}</style>
       {children}
     </div>

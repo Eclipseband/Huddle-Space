@@ -205,6 +205,7 @@ export default function App() {
   const [imageProcessing, setImageProcessing] = useState(false);
   const [imageError, setImageError] = useState("");
   const [reactionPickerOpen, setReactionPickerOpen] = useState({});
+  const [customEmoji, setCustomEmoji] = useState("");
   const [dmPanelOpen, setDmPanelOpen] = useState(false);
   const [dmWith, setDmWith] = useState(null);
   const [dmMessages, setDmMessages] = useState([]);
@@ -1399,6 +1400,29 @@ export default function App() {
                                 {emoji}
                               </button>
                             ))}
+                            <input
+                              value={customEmoji}
+                              onChange={(e) => setCustomEmoji(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" && customEmoji.trim()) {
+                                  setReaction(p.id, customEmoji.trim());
+                                  setCustomEmoji("");
+                                }
+                              }}
+                              placeholder="🖊️"
+                              title="Type or paste any emoji, then press Enter"
+                              style={{
+                                width: 34,
+                                textAlign: "center",
+                                background: "#16161A",
+                                border: "1px solid #2E2E33",
+                                borderRadius: 999,
+                                color: "#EDEDEF",
+                                fontSize: 15,
+                                padding: "2px 4px",
+                                outline: "none",
+                              }}
+                            />
                           </div>
                         )}
                       </div>

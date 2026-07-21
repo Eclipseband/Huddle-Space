@@ -188,6 +188,10 @@ function Logo({ size = 28 }) {
 export default function App() {
   const [profile, setProfile] = useState(null);
   const [nameInput, setNameInput] = useState("");
+  const [joinError, setJoinError] = useState("");
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
+  const [nameError, setNameError] = useState("");
   const [members, setMembers] = useState({});
   const [posts, setPosts] = useState([]);
   const [composeText, setComposeText] = useState("");
@@ -336,9 +340,19 @@ export default function App() {
     }
   }, [dmMessages, dmWith]);
 
+  function nameOf(n) {
+    return members[n]?.displayName || n;
+  }
+
   async function joinHuddle() {
     const name = nameInput.trim();
     if (!name) return;
+    const taken = Object.keys(members).some((n) => n.toLowerCase() === name.toLowerCase());
+    if (taken) {
+      setJoinError("That name is already taken — try another.");
+      return;
+    }
+    setJoinError("");
     const newProfile = { name };
     localStorage.setItem(PROFILE_KEY, JSON.stringify(newProfile));
     setProfile(newProfile);
@@ -353,6 +367,24 @@ export default function App() {
         read: false,
       });
     });
+  }
+
+  function startEditName() {
+    setNameDraft(nameOf(profile.name));
+    setNameError("");
+    setEditingName(true);
+  }
+
+  async function saveName() {
+    const newName = nameDraft.trim();
+    if (!newName) return;
+    const taken = Object.keys(members).some((n) => n !== profile.name && nameOf(n).toLowerCase() === newName.toLowerCase());
+    if (taken) {
+      setNameError("Someone already has that name.");
+      return;
+    }
+    await setDoc(doc(db, "members", profile.name), { displayName: newName }, { merge: true });
+    setEditingName(false);
   }
 
   async function handleFileSelect(e) {
@@ -697,6 +729,11 @@ export default function App() {
               outline: "none",
             }}
           />
+          {joinError && (
+            <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 12, color: "#FF8A4C", marginTop: -8, marginBottom: 14, textAlign: "left" }}>
+              {joinError}
+            </div>
+          )}
           <button
             onClick={joinHuddle}
             disabled={!nameInput.trim()}
@@ -862,7 +899,7 @@ export default function App() {
                 onClick={() => openProfile(profile.name)}
                 style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13, color: "#8B8B93", cursor: "pointer", marginLeft: 4 }}
               >
-                hi, {profile.name}
+                hi, {nameOf(profile.name)}
               </div>
             </div>
           </div>
@@ -1143,7 +1180,7 @@ export default function App() {
                       >
                         <Avatar name={p.author} size={38} photoURL={members[p.author]?.photoURL} online={isOnline(p.author)} />
                         <div>
-                          <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontWeight: 600, fontSize: 14, color: "#EDEDEF" }}>{p.author}</div>
+                          <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontWeight: 600, fontSize: 14, color: "#EDEDEF" }}>{nameOf(p.author)}</div>
                           <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: "#8B8B93" }}>
                             {timeAgo(p.timestamp)}
                             {p.edited && " · edited"}
@@ -1347,7 +1384,7 @@ export default function App() {
                                     }}
                                     style={{ cursor: "pointer", padding: "2px 0" }}
                                   >
-                                    {n}
+                                    {nameOf(n)}
                                   </div>
                                 ))}
                               </div>
@@ -1440,7 +1477,7 @@ export default function App() {
                           <div key={i} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
                             <Avatar name={c.author} size={26} photoURL={members[c.author]?.photoURL} />
                             <div style={{ background: "#1C1C1F", borderRadius: 12, padding: "6px 12px", fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13, color: "#EDEDEF" }}>
-                              <span style={{ fontWeight: 600 }}>{c.author}</span> {renderWithMentions(c.text, memberNames, openProfile)}
+                              <span style={{ fontWeight: 600 }}>{nameOf(c.author)}</span> {renderWithMentions(c.text, memberNames, openProfile)}
                             </div>
                           </div>
                         ))}
@@ -1477,7 +1514,7 @@ export default function App() {
               ) : (
                 <Mail size={18} color="#8B8B93" />
               )}
-              <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 18, color: "#EDEDEF", flex: 1 }}>{dmWith || "Messages"}</div>
+              <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 18, color: "#EDEDEF", flex: 1 }}>{dmWith ? nameOf(dmWith) : "Messages"}</div>
               <button onClick={() => setDmPanelOpen(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "#8B8B93", padding: 0 }}>
                 <X size={18} />
               </button>
@@ -1493,7 +1530,7 @@ export default function App() {
                     .map((n) => (
                       <div key={n} onClick={() => openConversation(n)} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 18px", cursor: "pointer", borderBottom: "1px solid #2A2A2D" }}>
                         <Avatar name={n} size={34} photoURL={members[n]?.photoURL} online={isOnline(n)} />
-                        <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 14, color: "#EDEDEF" }}>{n}</div>
+                        <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 14, color: "#EDEDEF" }}>{nameOf(n)}</div>
                       </div>
                     ))
                 )}
@@ -1600,7 +1637,7 @@ export default function App() {
                         style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 4px", cursor: "pointer" }}
                       >
                         <Avatar name={n} size={34} photoURL={members[n]?.photoURL} online={isOnline(n)} />
-                        <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 14, color: "#EDEDEF" }}>{n}</div>
+                        <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 14, color: "#EDEDEF" }}>{nameOf(n)}</div>
                       </div>
                     ))
                   )}
@@ -1646,27 +1683,74 @@ export default function App() {
                     {avatarUploading && (
                       <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: "#8B8B93", marginTop: 4 }}>Uploading…</div>
                     )}
-                    <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 22, color: "#EDEDEF", marginTop: 12 }}>
-                      {profileName}
-                      {isOwnProfile && <span style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontStyle: "normal", fontSize: 12, color: "#8B8B93" }}> (you)</span>}
-                      {ADMIN_NAMES.includes(profileName) && (
-                        <span
+                    {editingName ? (
+                      <div style={{ width: "100%", marginTop: 12 }}>
+                        <input
+                          value={nameDraft}
+                          onChange={(e) => setNameDraft(e.target.value)}
                           style={{
-                            fontFamily: "'IBM Plex Mono', monospace",
-                            fontStyle: "normal",
-                            fontSize: 10,
-                            color: "#FF8A4C",
-                            border: "1px solid #FF8A4C",
-                            borderRadius: 999,
-                            padding: "2px 8px",
-                            marginLeft: 8,
-                            verticalAlign: "middle",
+                            width: "100%",
+                            boxSizing: "border-box",
+                            padding: "8px 10px",
+                            borderRadius: 10,
+                            border: "1px solid #2E2E33",
+                            background: "#16161A",
+                            color: "#EDEDEF",
+                            fontFamily: "'IBM Plex Sans', sans-serif",
+                            fontSize: 14,
+                            outline: "none",
+                            textAlign: "center",
                           }}
-                        >
-                          ADMIN
-                        </span>
-                      )}
-                    </div>
+                        />
+                        {nameError && (
+                          <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 11, color: "#FF8A4C", marginTop: 4 }}>{nameError}</div>
+                        )}
+                        <div style={{ display: "flex", gap: 8, marginTop: 8, justifyContent: "center" }}>
+                          <button
+                            onClick={() => setEditingName(false)}
+                            style={{ padding: "6px 14px", borderRadius: 999, border: "1px solid #2E2E33", background: "transparent", color: "#8B8B93", fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 12, cursor: "pointer" }}
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={saveName}
+                            style={{ padding: "6px 14px", borderRadius: 999, border: "none", background: "#FF8A4C", color: "#16161A", fontFamily: "'IBM Plex Sans', sans-serif", fontWeight: 600, fontSize: 12, cursor: "pointer" }}
+                          >
+                            Save
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 22, color: "#EDEDEF", marginTop: 12 }}>
+                        {nameOf(profileName)}
+                        {isOwnProfile && (
+                          <span
+                            onClick={startEditName}
+                            title="Change your display name"
+                            style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontStyle: "normal", fontSize: 12, color: "#8B8B93", cursor: "pointer", marginLeft: 6 }}
+                          >
+                            ✎
+                          </span>
+                        )}
+                        {ADMIN_NAMES.includes(profileName) && (
+                          <span
+                            style={{
+                              fontFamily: "'IBM Plex Mono', monospace",
+                              fontStyle: "normal",
+                              fontSize: 10,
+                              color: "#FF8A4C",
+                              border: "1px solid #FF8A4C",
+                              borderRadius: 999,
+                              padding: "2px 8px",
+                              marginLeft: 8,
+                              verticalAlign: "middle",
+                            }}
+                          >
+                            ADMIN
+                          </span>
+                        )}
+                      </div>
+                    )}
 
                     {editingBio ? (
                       <div style={{ width: "100%", marginTop: 12 }}>
@@ -1805,7 +1889,7 @@ export default function App() {
               >
                 <Avatar name={n} size={34} photoURL={members[n]?.photoURL} online={isOnline(n)} />
                 <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 14, color: "#EDEDEF" }}>
-                  {n}
+                  {nameOf(n)}
                   {n === profile.name && <span style={{ color: "#8B8B93" }}> (you)</span>}
                 </div>
               </div>
@@ -1844,7 +1928,7 @@ export default function App() {
                   return (
                     <div key={r.id} style={{ border: "1px solid #2E2E33", borderRadius: 12, padding: 14, marginBottom: 10 }}>
                       <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 12, color: "#8B8B93", marginBottom: 4 }}>
-                        Post by <span style={{ color: "#EDEDEF", fontWeight: 600 }}>{r.postAuthor}</span> · reported by {r.reportedBy}
+                        Post by <span style={{ color: "#EDEDEF", fontWeight: 600 }}>{nameOf(r.postAuthor)}</span> · reported by {nameOf(r.reportedBy)}
                       </div>
                       <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13, color: "#EDEDEF", marginBottom: 10, lineHeight: 1.4 }}>
                         {r.postTextSnippet}

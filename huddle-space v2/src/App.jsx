@@ -2198,3 +2198,4 @@ function Wrap({ children }) {
     </div>
   );
 }
+export default App;

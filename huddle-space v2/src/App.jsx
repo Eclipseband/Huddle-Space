@@ -672,6 +672,23 @@ export default function App() {
     setEditingBio(false);
   }
 
+  function logOut() {
+    localStorage.removeItem(PROFILE_KEY);
+    setProfile(null);
+    setProfilePanelOpen(false);
+  }
+
+  async function deleteAccount() {
+    const confirmed = window.confirm(
+      "Delete your Huddle Space account? Your profile will be removed. Your past posts stay up but will keep showing your old name. This can't be undone."
+    );
+    if (!confirmed) return;
+    await deleteDoc(doc(db, "members", profile.name));
+    localStorage.removeItem(PROFILE_KEY);
+    setProfile(null);
+    setProfilePanelOpen(false);
+  }
+
   async function handleAvatarSelect(e) {
     const file = e.target.files?.[0];
     e.target.value = "";
@@ -1875,16 +1892,30 @@ export default function App() {
                       </div>
                     </div>
 
-                    <div style={{ display: "flex", gap: 8, marginTop: 18 }}>
+                    <div style={{ display: "flex", gap: 8, marginTop: 18, flexWrap: "wrap", justifyContent: "center" }}>
                       {isOwnProfile ? (
-                        !editingBio && (
+                        <>
+                          {!editingBio && (
+                            <button
+                              onClick={startEditBio}
+                              style={{ padding: "8px 16px", borderRadius: 999, border: "1px solid #2E2E33", background: "transparent", color: "#EDEDEF", fontFamily: "'IBM Plex Sans', sans-serif", fontWeight: 600, fontSize: 12, cursor: "pointer" }}
+                            >
+                              Edit bio
+                            </button>
+                          )}
                           <button
-                            onClick={startEditBio}
-                            style={{ padding: "8px 16px", borderRadius: 999, border: "1px solid #2E2E33", background: "transparent", color: "#EDEDEF", fontFamily: "'IBM Plex Sans', sans-serif", fontWeight: 600, fontSize: 12, cursor: "pointer" }}
+                            onClick={logOut}
+                            style={{ padding: "8px 16px", borderRadius: 999, border: "1px solid #2E2E33", background: "transparent", color: "#8B8B93", fontFamily: "'IBM Plex Sans', sans-serif", fontWeight: 600, fontSize: 12, cursor: "pointer" }}
                           >
-                            Edit bio
+                            Log out
                           </button>
-                        )
+                          <button
+                            onClick={deleteAccount}
+                            style={{ padding: "8px 16px", borderRadius: 999, border: "1px solid #FF8A4C", background: "transparent", color: "#FF8A4C", fontFamily: "'IBM Plex Sans', sans-serif", fontWeight: 600, fontSize: 12, cursor: "pointer" }}
+                          >
+                            Delete account
+                          </button>
+                        </>
                       ) : (
                         <>
                           <button

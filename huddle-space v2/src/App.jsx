@@ -279,6 +279,8 @@ export default function App() {
   }
 
   // Notifications: realtime listener for this user (sorted client-side to avoid needing a composite index)
+  const seenNotifIds = useRef(new Set());
+  const notifLoaded = useRef(false);
   useEffect(() => {
     if (!profile) return;
     const q = query(collection(db, "notifications"), where("to", "==", profile.name));
@@ -289,6 +291,15 @@ export default function App() {
       });
       list.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
       setNotifications(list);
+      if (notifLoaded.current && typeof Notification !== "undefined" && Notification.permission === "granted") {
+        list.forEach((n) => {
+          if (!seenNotifIds.current.has(n.id)) {
+            new Notification("Huddle Space", { body: n.message });
+          }
+        });
+      }
+      list.forEach((n) => seenNotifIds.current.add(n.id));
+      notifLoaded.current = true;
     });
     return () => unsub();
   }, [profile]);
@@ -790,6 +801,24 @@ export default function App() {
               <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 28, color: "#EDEDEF" }}>Huddle Space</div>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              {typeof Notification !== "undefined" && Notification.permission === "default" && (
+                <button
+                  onClick={() => Notification.requestPermission()}
+                  className="hs-icon-btn"
+                  style={{
+                    background: "none",
+                    border: "1px solid #2E2E33",
+                    borderRadius: 999,
+                    color: "#8B8B93",
+                    fontFamily: "'IBM Plex Sans', sans-serif",
+                    fontSize: 11,
+                    padding: "6px 10px",
+                    cursor: "pointer",
+                  }}
+                >
+                  Enable notifications
+                </button>
+              )}
               <div style={{ position: "relative" }}>
                 <button
                   onClick={() => {
@@ -801,8 +830,7 @@ export default function App() {
                   title="Notifications"
                   className="hs-icon-btn"
                   style={{ background: "none", border: "none", cursor: "pointer", color: "#8B8B93", position: "relative", width: 38, height: 38, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }}
-                >
-                  <Bell size={18} />
+                >                  <Bell size={18} />
                   {notifications.some((n) => !n.read) && (
                     <span
                       style={{

@@ -1230,8 +1230,8 @@ function cancelComposeVideo() {
                 >
                   <ImageIcon size={16} /> {imageProcessing ? "Processing…" : "Photo"}
                 </button>
-<input
-  ref={videoInputRef}
+                <input
+                  ref={videoInputRef}
   type="file"
   accept="video/*"
   onChange={handleVideoSelect}

@@ -83,6 +83,23 @@ function extractMentionedNames(text, memberNames) {
   return memberNames.filter((n) => text.includes("@" + n));
 }
 
+async function uploadVideoToCloudinary(file) {
+  const CLOUD_NAME = "ffbktwie";
+  const UPLOAD_PRESET = "huddle_videos";
+
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("upload_preset", UPLOAD_PRESET);
+
+  const response = await fetch(
+    `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/video/upload`,
+    { method: "POST", body: formData }
+  );
+
+  const data = await response.json();
+  return data.secure_url;
+}
+
 function renderWithMentions(text, memberNames, onClickName) {
   if (!text) return text;
   const sorted = [...memberNames].sort((a, b) => b.length - a.length);
@@ -198,6 +215,10 @@ export default function App() {
   const [posts, setPosts] = useState([]);
   const [composeText, setComposeText] = useState("");
   const [composeImage, setComposeImage] = useState(null); // { blob, previewUrl }
+  const [composeVideo, setComposeVideo] = useState(null); // { file, previewUrl }
+  const [videoUploading, setVideoUploading] = useState(false);
+  const [videoError, setVideoError] = useState("");
+  const videoInputRef = useRef(null);
   const [pollMode, setPollMode] = useState(false);
   const [pollQuestion, setPollQuestion] = useState("");
   const [pollOptions, setPollOptions] = useState(["", ""]);
@@ -431,50 +452,101 @@ export default function App() {
       setImageProcessing(false);
     }
   }
+function handleVideoSelect(e) {
+  const file = e.target.files?.[0];
+  e.target.value = "";
+  if (!file) return;
+  if (!file.type.startsWith("video/")) {
+    setVideoError("That file isn't a video.");
+    return;
+  }
+  const MAX_MB = 50;
+  if (file.size > MAX_MB * 1024 * 1024) {
+    setVideoError(`That video is too large — keep it under ${MAX_MB}MB.`);
+    return;
+  }
+  setVideoError("");
+  if (composeVideo?.previewUrl) URL.revokeObjectURL(composeVideo.previewUrl);
+  setComposeVideo({
+    file,
+    previewUrl: URL.createObjectURL(file),
+  });
+}
 
-  async function sharePost() {
-    const text = composeText.trim();
-    const validPollOptions = pollOptions.map((o) => o.trim()).filter(Boolean);
-    const isValidPoll = pollMode && pollQuestion.trim() && validPollOptions.length >= 2;
-    if (!text && !isValidPoll) return;
-    setPosting(true);
-    try {
-      await addDoc(collection(db, "posts"), {
-        author: profile.name,
-        text,
-        imageUrl: composeImage || null,
-        timestamp: serverTimestamp(),
-        reactions: {},
-        comments: [],
-        pinned: false,
-        poll: isValidPoll
-          ? { question: pollQuestion.trim(), options: validPollOptions.map((o) => ({ text: o, votes: [] })) }
-          : null,
-      });
-      const mentioned = extractMentionedNames(text, memberNames);
-      memberNames
-        .filter((n) => n !== profile.name && ((members[n]?.following || []).includes(profile.name) || mentioned.includes(n)))
-        .forEach((n) => {
-          addDoc(collection(db, "notifications"), {
-            to: n,
-            type: mentioned.includes(n) ? "mention" : "post",
-            from: profile.name,
-            message: mentioned.includes(n) ? `${profile.name} mentioned you in a post` : `${profile.name} posted something new`,
-            timestamp: Date.now(),
-            read: false,
-          });
-        });
-      setComposeText("");
-      setComposeImage(null);
-      setImageError("");
-      setPollMode(false);
-      setPollQuestion("");
-      setPollOptions(["", ""]);
-    } catch (err) {
-      setImageError("Something went wrong posting. Try again.");
-    } finally {
-      setPosting(false);
+function cancelComposeVideo() {
+  if (composeVideo?.previewUrl) {
+    URL.revokeObjectURL(composeVideo.previewUrl);
+  }
+  setComposeVideo(null);
+  setVideoError("");
+ async function sharePost() {
+  const text = composeText.trim();
+  const validPollOptions = pollOptions.map((o) => o.trim()).filter(Boolean);
+  const isValidPoll = pollMode && pollQuestion.trim() && validPollOptions.length >= 2;
+  if (!text && !isValidPoll && !composeImage && !composeVideo) return;
+
+  setPosting(true);
+  try {
+    let videoUrl = null;
+    if (composeVideo) {
+      setVideoUploading(true);
+      videoUrl = await uploadVideoToCloudinary(composeVideo.file);
+      setVideoUploading(false);
     }
+
+    await addDoc(collection(db, "posts"), {
+      author: profile.name,
+      text,
+      imageUrl: composeImage || null,
+      videoUrl: videoUrl || null,
+      timestamp: serverTimestamp(),
+      reactions: {},
+      comments: [],
+      pinned: false,
+      poll: isValidPoll
+        ? {
+            question: pollQuestion.trim(),
+            options: validPollOptions.map((o) => ({
+              text: o,
+              votes: [],
+            })),
+          }
+        : null,
+    });
+
+    const mentioned = extractMentionedNames(text, memberNames);
+    memberNames
+      .filter(
+        (n) =>
+          n !== profile.name &&
+          ((members[n]?.following || []).includes(profile.name) ||
+            mentioned.includes(n))
+      )
+      .forEach((n) => {
+        addDoc(collection(db, "notifications"), {
+          to: n,
+          type: mentioned.includes(n) ? "mention" : "post",
+          from: profile.name,
+          message: mentioned.includes(n)
+            ? `${profile.name} mentioned you in a post`
+            : `${profile.name} posted something new`,
+          timestamp: Date.now(),
+          read: false,
+        });
+      });
+
+    setComposeText("");
+    setComposeImage(null);
+    cancelComposeVideo();
+    setImageError("");
+    setPollMode(false);
+    setPollQuestion("");
+    setPollOptions(["", ""]);
+  } catch (err) {
+    setVideoError("Something went wrong posting. Try again.");
+  } finally {
+    setPosting(false);
+    setVideoUploading(false);
   }
 
   async function setReaction(postId, emoji) {
@@ -1158,6 +1230,31 @@ export default function App() {
                 >
                   <ImageIcon size={16} /> {imageProcessing ? "Processing…" : "Photo"}
                 </button>
+<input
+  ref={videoInputRef}
+  type="file"
+  accept="video/*"
+  onChange={handleVideoSelect}
+  style={{ display: "none" }}
+/>
+
+<button
+  onClick={() => videoInputRef.current?.click()}
+  style={{
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+    background: "none",
+    border: "none",
+    color: "#8B8B93",
+    cursor: "pointer",
+    fontFamily: "'IBM Plex Sans', sans-serif",
+    fontSize: 13,
+    padding: "6px 8px",
+  }}
+>
+  <Camera size={16} /> Video
+</button>
                 <button
                   onClick={() => setPollMode((v) => !v)}
                   style={{
@@ -1178,7 +1275,7 @@ export default function App() {
               </div>
               <button
                 onClick={sharePost}
-                disabled={(!composeText.trim() && !(pollMode && pollQuestion.trim() && pollOptions.filter((o) => o.trim()).length >= 2)) || posting}
+                disabled={(!composeText.trim() && !composeImage && !composeVideo && !(pollMode && pollQuestion.trim() && pollOptions.filter((o) => o.trim()).length >= 2)) || posting}
                 style={{
                   display: "flex",
                   alignItems: "center",
@@ -1414,6 +1511,13 @@ export default function App() {
                     {p.imageUrl && (
                       <img src={p.imageUrl} alt="" style={{ width: "100%", borderRadius: 12, marginBottom: 10, display: "block" }} onError={(e) => (e.target.style.display = "none")} />
                     )}
+                    {p.videoUrl && (
+  <video
+    src={p.videoUrl}
+    controls
+    style={{ width: "100%", borderRadius: 12, marginBottom: 10, display: "block" }}
+  />
+)}
                     {reactionEntries.length > 0 && (
                       <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
                         {reactionEntries.map(([emoji, names]) => (

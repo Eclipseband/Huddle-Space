@@ -479,6 +479,7 @@ function cancelComposeVideo() {
   }
   setComposeVideo(null);
   setVideoError("");
+}
  async function sharePost() {
   const text = composeText.trim();
   const validPollOptions = pollOptions.map((o) => o.trim()).filter(Boolean);
@@ -548,6 +549,7 @@ function cancelComposeVideo() {
     setPosting(false);
     setVideoUploading(false);
   }
+}
 
   async function setReaction(postId, emoji) {
     const post = posts.find((p) => p.id === postId);

@@ -358,9 +358,13 @@ export default function App() {
   async function joinHuddle() {
     const name = nameInput.trim();
     if (!name) return;
-    const taken = Object.keys(members).some((n) => n.toLowerCase() === name.toLowerCase());
-    if (taken) {
-      setJoinError("That name is already taken — try another.");
+    const existing = Object.keys(members).find((n) => n.toLowerCase() === name.toLowerCase());
+    if (existing) {
+      // Returning member on a new browser/domain — log back in as them, no password needed
+      setJoinError("");
+      const newProfile = { name: existing };
+      localStorage.setItem(PROFILE_KEY, JSON.stringify(newProfile));
+      setProfile(newProfile);
       return;
     }
     setJoinError("");
@@ -721,6 +725,9 @@ export default function App() {
           </div>
           <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", color: "#8B8B93", fontSize: 14, marginBottom: 28 }}>
             A closed feed for people who already know each other.
+          </div>
+          <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", color: "#5C5C63", fontSize: 12, marginBottom: 12 }}>
+            Already joined before? Just type your name again.
           </div>
           <input
             value={nameInput}

@@ -20,6 +20,8 @@ import {
 import { AVATAR_COLORS, REACTIONS, PROFILE_KEY, ADMIN_NAMES, ADMIN_PIN } from "./constants";
 import { colorFor, compressImageFile, timeAgo, convKey, extractMentionedNames, uploadVideoToCloudinary } from "./utils";
 import Avatar from "./components/Avatar";
+import TasksPanel from "./components/TasksPanel";
+const [tasksOpen, setTasksOpen] = useState(false);
 import Logo from "./components/Logo";
 function renderWithMentions(text, memberNames, onClickName) {
   if (!text) return text;
@@ -882,13 +884,15 @@ function cancelComposeVideo() {
                           }}
                         >
                           <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13, color: "#EDEDEF" }}>{n.message}</div>
-                          <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: "#8B8B93", marginTop: 2 }}>{timeAgo(n.timestamp)}</div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                )}
-              </div>
+                   </div>
+              <button
+                onClick={() => setTasksOpen(true)}
+                title="Tasks"
+                className="hs-icon-btn"
+                style={{ background: "none", border: "none", cursor: "pointer", color: "#8B8B93", width: 38, height: 38, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }}
+              >
+                ✓
+              </button>
               {ADMIN_NAMES.includes(profile.name) && (
                 <div style={{ position: "relative" }}>
                   <button
@@ -2036,6 +2040,9 @@ function cancelComposeVideo() {
             ))}
           </div>
         </div>
+      )}
+        {tasksOpen && (
+        <TasksPanel profile={profile} members={members} memberNames={memberNames} nameOf={nameOf} onClose={() => setTasksOpen(false)} />
       )}
 
       {reportsPanelOpen && ADMIN_NAMES.includes(profile.name) && (() => {

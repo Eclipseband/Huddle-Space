@@ -909,7 +909,8 @@ function cancelComposeVideo() {
   className="hs-icon-btn"
   style={{ background: "none", border: "none", cursor: "pointer", color: "#8B8B93", width: 38, height: 38, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }}
 >
-  ✨
+ ✨
+</button>
                <button
   onClick={() => setGmailOpen(true)}
   title="Gmail"

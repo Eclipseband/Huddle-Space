@@ -236,6 +236,8 @@ export default function App() {
   const [dmPanelOpen, setDmPanelOpen] = useState(false);
   const [dmWith, setDmWith] = useState(null);
   const [dmMessages, setDmMessages] = useState([]);
+  const [conversations, setConversations] = useState([]);
+  const [dmNewChatOpen, setDmNewChatOpen] = useState(false);
   const [profilePanelOpen, setProfilePanelOpen] = useState(false);
   const [profileName, setProfileName] = useState(null);
   const [editingBio, setEditingBio] = useState(false);
@@ -373,6 +375,27 @@ export default function App() {
       dmScrollRef.current.scrollTop = dmScrollRef.current.scrollHeight;
     }
   }, [dmMessages, dmWith]);
+
+  // Conversations list: only threads this user is actually part of, newest first
+  useEffect(() => {
+    if (!profile) return;
+    const q = query(collection(db, "dms"), where("participants", "array-contains", profile.name));
+    const unsub = onSnapshot(q, (snap) => {
+      const list = snap.docs.map((d) => {
+        const data = d.data();
+        const other = (data.participants || []).find((n) => n !== profile.name);
+        return {
+          id: d.id,
+          with: other,
+          lastMessage: data.lastMessage || "",
+          lastTimestamp: data.lastTimestamp || 0,
+        };
+      }).filter((c) => c.with);
+      list.sort((a, b) => b.lastTimestamp - a.lastTimestamp);
+      setConversations(list);
+    });
+    return () => unsub();
+  }, [profile]);
 
   function nameOf(n) {
     return members[n]?.displayName || n;
@@ -680,6 +703,7 @@ function cancelComposeVideo() {
 
   function openConversation(name) {
     if (!name || name === profile.name) return;
+    setDmNewChatOpen(false);
     setDmWith(name);
     setDmPanelOpen(true);
   }
@@ -787,8 +811,12 @@ function cancelComposeVideo() {
     const ref_ = doc(db, "dms", key);
     const snap = await getDoc(ref_);
     const existing = snap.exists() ? snap.data().messages || [] : [];
+    const now = Date.now();
     await setDoc(ref_, {
-      messages: [...existing, { from: profile.name, text, timestamp: Date.now() }],
+      messages: [...existing, { from: profile.name, text, timestamp: now }],
+      participants: [profile.name, dmWith],
+      lastMessage: text,
+      lastTimestamp: now,
     });
     addDoc(collection(db, "notifications"), {
       to: dmWith,
@@ -1693,20 +1721,37 @@ function cancelComposeVideo() {
         <div onClick={() => setDmPanelOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(43,42,40,0.35)", display: "flex", justifyContent: "flex-end", zIndex: 50 }}>
           <div onClick={(e) => e.stopPropagation()} style={{ width: 360, maxWidth: "92vw", height: "100%", background: "#1C1C1F", boxShadow: "-6px 0 24px rgba(43,42,40,0.15)", display: "flex", flexDirection: "column" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "16px 18px", borderBottom: "1px solid #2E2E33" }}>
-              {dmWith ? (
-                <button onClick={() => setDmWith(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "#8B8B93", padding: 0 }}>
+              {dmWith || dmNewChatOpen ? (
+                <button
+                  onClick={() => {
+                    setDmWith(null);
+                    setDmNewChatOpen(false);
+                  }}
+                  style={{ background: "none", border: "none", cursor: "pointer", color: "#8B8B93", padding: 0 }}
+                >
                   <ArrowLeft size={18} />
                 </button>
               ) : (
                 <Mail size={18} color="#8B8B93" />
               )}
-              <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 18, color: "#EDEDEF", flex: 1 }}>{dmWith ? nameOf(dmWith) : "Messages"}</div>
+              <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 18, color: "#EDEDEF", flex: 1 }}>
+                {dmWith ? nameOf(dmWith) : dmNewChatOpen ? "New message" : "Messages"}
+              </div>
+              {!dmWith && !dmNewChatOpen && (
+                <button
+                  onClick={() => setDmNewChatOpen(true)}
+                  title="Start a new conversation"
+                  style={{ background: "none", border: "none", cursor: "pointer", color: "#FF8A4C", padding: 0, fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13, fontWeight: 600 }}
+                >
+                  New
+                </button>
+              )}
               <button onClick={() => setDmPanelOpen(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "#8B8B93", padding: 0 }}>
                 <X size={18} />
               </button>
             </div>
 
-            {!dmWith ? (
+            {!dmWith && dmNewChatOpen ? (
               <div style={{ overflowY: "auto", flex: 1 }}>
                 {memberNames.filter((n) => n !== profile.name).length === 0 ? (
                   <div style={{ padding: 24, color: "#8B8B93", fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13, textAlign: "center" }}>Nobody else has joined yet.</div>
@@ -1714,11 +1759,54 @@ function cancelComposeVideo() {
                   memberNames
                     .filter((n) => n !== profile.name)
                     .map((n) => (
-                      <div key={n} onClick={() => openConversation(n)} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 18px", cursor: "pointer", borderBottom: "1px solid #2A2A2D" }}>
+                      <div
+                        key={n}
+                        onClick={() => {
+                          setDmNewChatOpen(false);
+                          openConversation(n);
+                        }}
+                        style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 18px", cursor: "pointer", borderBottom: "1px solid #2A2A2D" }}
+                      >
                         <Avatar name={n} size={34} photoURL={members[n]?.photoURL} online={isOnline(n)} />
                         <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 14, color: "#EDEDEF" }}>{nameOf(n)}</div>
                       </div>
                     ))
+                )}
+              </div>
+            ) : !dmWith ? (
+              <div style={{ overflowY: "auto", flex: 1 }}>
+                {conversations.length === 0 ? (
+                  <div style={{ padding: 24, color: "#8B8B93", fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13, textAlign: "center" }}>
+                    No conversations yet. Tap "New" to message someone.
+                  </div>
+                ) : (
+                  conversations.map((c) => (
+                    <div
+                      key={c.id}
+                      onClick={() => openConversation(c.with)}
+                      style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 18px", cursor: "pointer", borderBottom: "1px solid #2A2A2D" }}
+                    >
+                      <Avatar name={c.with} size={34} photoURL={members[c.with]?.photoURL} online={isOnline(c.with)} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 14, color: "#EDEDEF" }}>{nameOf(c.with)}</div>
+                        <div
+                          style={{
+                            fontFamily: "'IBM Plex Sans', sans-serif",
+                            fontSize: 12,
+                            color: "#8B8B93",
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                          }}
+                        >
+                          {c.lastMessage}
+                        </div>
+                      </div>
+                      <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: "#5C5C63", flexShrink: 0 }}>
+                        {timeAgo(c.lastTimestamp)}
+                      </div>
+                    </div>
+                  ))
                 )}
               </div>
             ) : (
@@ -1730,7 +1818,7 @@ function cancelComposeVideo() {
                     dmMessages.map((m, i) => {
                       const mine = m.from === profile.name;
                       return (
-                        <div key={i} style={{ display: "flex", justifyContent: mine ? "flex-end" : "flex-start" }}>
+                        <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: mine ? "flex-end" : "flex-start" }}>
                           <div
                             style={{
                               maxWidth: "78%",
@@ -1745,6 +1833,9 @@ function cancelComposeVideo() {
                             }}
                           >
                             {m.text}
+                          </div>
+                          <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: "#5C5C63", marginTop: 2, padding: "0 4px" }}>
+                            {timeAgo(m.timestamp)}
                           </div>
                         </div>
                       );

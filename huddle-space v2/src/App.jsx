@@ -22,6 +22,7 @@ import { colorFor, compressImageFile, timeAgo, convKey, extractMentionedNames, u
 import Avatar from "./components/Avatar";
 import TasksPanel from "./components/TasksPanel";
 import AIAssistant from "./components/AIAssistant";
+import GmailPanel from "./components/GmailPanel";
 import Logo from "./components/Logo";
 function renderWithMentions(text, memberNames, onClickName) {
   if (!text) return text;
@@ -105,6 +106,7 @@ export default function App() {
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [tasksOpen, setTasksOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
+  const [gmailOpen, setGmailOpen] = useState(false);
 
   // Load profile from this browser's localStorage on mount
   useEffect(() => {
@@ -908,6 +910,14 @@ function cancelComposeVideo() {
   style={{ background: "none", border: "none", cursor: "pointer", color: "#8B8B93", width: 38, height: 38, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }}
 >
   ✨
+                <button
+  onClick={() => setGmailOpen(true)}
+  title="Gmail"
+  className="hs-icon-btn"
+  style={{ background: "none", border: "none", cursor: "pointer", color: "#8B8B93", width: 38, height: 38, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }}
+>
+  📧
+</button>
 </button>
               {ADMIN_NAMES.includes(profile.name) && (
                 <div style={{ position: "relative" }}>
@@ -2061,6 +2071,7 @@ function cancelComposeVideo() {
         <TasksPanel profile={profile} members={members} memberNames={memberNames} nameOf={nameOf} onClose={() => setTasksOpen(false)} />
       )}
       {aiOpen && <AIAssistant onClose={() => setAiOpen(false)} />}
+      {gmailOpen && <GmailPanel onClose={() => setGmailOpen(false)} />}
 
       {reportsPanelOpen && ADMIN_NAMES.includes(profile.name) && (() => {
         const openReports = reports.filter((r) => !r.resolved && posts.some((p) => p.id === r.postId));

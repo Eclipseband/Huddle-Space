@@ -21,6 +21,7 @@ import { AVATAR_COLORS, REACTIONS, PROFILE_KEY, ADMIN_NAMES, ADMIN_PIN } from ".
 import { colorFor, compressImageFile, timeAgo, convKey, extractMentionedNames, uploadVideoToCloudinary } from "./utils";
 import Avatar from "./components/Avatar";
 import TasksPanel from "./components/TasksPanel";
+import AIAssistant from "./components/AIAssistant";
 import Logo from "./components/Logo";
 function renderWithMentions(text, memberNames, onClickName) {
   if (!text) return text;
@@ -103,6 +104,7 @@ export default function App() {
   const avatarFileInputRef = useRef(null);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [tasksOpen, setTasksOpen] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
 
   // Load profile from this browser's localStorage on mount
   useEffect(() => {
@@ -899,6 +901,14 @@ function cancelComposeVideo() {
               >
                 ✓
               </button>
+              <button
+  onClick={() => setAiOpen(true)}
+  title="AI Assistant"
+  className="hs-icon-btn"
+  style={{ background: "none", border: "none", cursor: "pointer", color: "#8B8B93", width: 38, height: 38, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }}
+>
+  ✨
+</button>
               {ADMIN_NAMES.includes(profile.name) && (
                 <div style={{ position: "relative" }}>
                   <button
@@ -2050,6 +2060,7 @@ function cancelComposeVideo() {
         {tasksOpen && (
         <TasksPanel profile={profile} members={members} memberNames={memberNames} nameOf={nameOf} onClose={() => setTasksOpen(false)} />
       )}
+      {aiOpen && <AIAssistant onClose={() => setAiOpen(false)} />}
 
       {reportsPanelOpen && ADMIN_NAMES.includes(profile.name) && (() => {
         const openReports = reports.filter((r) => !r.resolved && posts.some((p) => p.id === r.postId));

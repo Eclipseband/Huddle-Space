@@ -21,7 +21,6 @@ import { AVATAR_COLORS, REACTIONS, PROFILE_KEY, ADMIN_NAMES, ADMIN_PIN } from ".
 import { colorFor, compressImageFile, timeAgo, convKey, extractMentionedNames, uploadVideoToCloudinary } from "./utils";
 import Avatar from "./components/Avatar";
 import TasksPanel from "./components/TasksPanel";
-const [tasksOpen, setTasksOpen] = useState(false);
 import Logo from "./components/Logo";
 function renderWithMentions(text, memberNames, onClickName) {
   if (!text) return text;
@@ -103,6 +102,7 @@ export default function App() {
   const dmScrollRef = useRef(null);
   const avatarFileInputRef = useRef(null);
   const [avatarUploading, setAvatarUploading] = useState(false);
+  const [tasksOpen, setTasksOpen] = useState(false);
 
   // Load profile from this browser's localStorage on mount
   useEffect(() => {

@@ -883,8 +883,14 @@ function cancelComposeVideo() {
                             background: n.read ? "transparent" : "rgba(255,138,76,0.10)",
                           }}
                         >
-                          <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13, color: "#EDEDEF" }}>{n.message}</div>
-                   </div>
+                         <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13, color: "#EDEDEF" }}>{n.message}</div>
+                          <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: "#8B8B93", marginTop: 2 }}>{timeAgo(n.timestamp)}</div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
               <button
                 onClick={() => setTasksOpen(true)}
                 title="Tasks"

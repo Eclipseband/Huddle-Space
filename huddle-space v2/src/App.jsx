@@ -858,10 +858,12 @@ function cancelComposeVideo() {
                 {notifPanelOpen && (
                   <div
                     style={{
-                      position: "absolute",
-                      top: "calc(100% + 10px)",
-                      right: 0,
+                      position: "fixed",
+                      top: 64,
+                      right: 12,
+                      left: "auto",
                       width: 300,
+                      maxWidth: "92vw",
                       maxHeight: 380,
                       overflowY: "auto",
                       background: "#1C1C1F",

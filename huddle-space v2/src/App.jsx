@@ -17,89 +17,10 @@ import {
   arrayUnion,
   arrayRemove,
 } from "firebase/firestore";
-
-
-const AVATAR_COLORS = ["#FF8A4C", "#C98C82", "#8B8B93", "#B08968", "#6E7B6B", "#9C6644"];
-const REACTIONS = ["❤️", "😂", "👍", "😮", "😢"];
-const PROFILE_KEY = "huddle-space-profile";
-const ADMIN_NAMES = ["John#6"];
-const ADMIN_PIN = "1177";
-
-function colorFor(name) {
-  let h = 0;
-  for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
-  return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length];
-}
-
-function compressImageFile(file, maxDim = 800, quality = 0.6) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error("Could not read file"));
-    reader.onload = () => {
-      const img = new window.Image();
-      img.onerror = () => reject(new Error("Could not read image"));
-      img.onload = () => {
-        let { width, height } = img;
-        if (width > maxDim || height > maxDim) {
-          if (width > height) {
-            height = Math.round((height * maxDim) / width);
-            width = maxDim;
-          } else {
-            width = Math.round((width * maxDim) / height);
-            height = maxDim;
-          }
-        }
-        const canvas = document.createElement("canvas");
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext("2d");
-        ctx.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL("image/jpeg", quality));
-      };
-      img.src = reader.result;
-    };
-    reader.readAsDataURL(file);
-  });
-}
-
-function timeAgo(ts) {
-  if (!ts) return "just now";
-  const s = Math.floor((Date.now() - ts) / 1000);
-  if (s < 60) return "just now";
-  const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  const d = Math.floor(h / 24);
-  return `${d}d ago`;
-}
-
-function convKey(a, b) {
-  return [a, b].sort().join("__");
-}
-
-function extractMentionedNames(text, memberNames) {
-  if (!text) return [];
-  return memberNames.filter((n) => text.includes("@" + n));
-}
-
-async function uploadVideoToCloudinary(file) {
-  const CLOUD_NAME = "ffbktwie";
-  const UPLOAD_PRESET = "huddle_videos";
-
-  const formData = new FormData();
-  formData.append("file", file);
-  formData.append("upload_preset", UPLOAD_PRESET);
-
-  const response = await fetch(
-    `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/video/upload`,
-    { method: "POST", body: formData }
-  );
-
-  const data = await response.json();
-  return data.secure_url;
-}
-
+import { AVATAR_COLORS, REACTIONS, PROFILE_KEY, ADMIN_NAMES, ADMIN_PIN } from "./constants";
+import { colorFor, compressImageFile, timeAgo, convKey, extractMentionedNames, uploadVideoToCloudinary } from "./utils";
+import Avatar from "./components/Avatar";
+import Logo from "./components/Logo";
 function renderWithMentions(text, memberNames, onClickName) {
   if (!text) return text;
   const sorted = [...memberNames].sort((a, b) => b.length - a.length);
@@ -129,78 +50,6 @@ function renderWithMentions(text, memberNames, onClickName) {
   }
   if (lastIndex < text.length) parts.push(text.slice(lastIndex));
   return parts;
-}
-
-function Avatar({ name, size = 36, photoURL, online }) {
-  const initial = name?.[0]?.toUpperCase() || "?";
-  const content = photoURL ? (
-    <img
-      src={photoURL}
-      alt={name}
-      style={{
-        width: size,
-        height: size,
-        borderRadius: "50%",
-        objectFit: "cover",
-        flexShrink: 0,
-        border: "2px solid #16161A",
-        display: "block",
-      }}
-    />
-  ) : (
-    <div
-      style={{
-        width: size,
-        height: size,
-        borderRadius: "50%",
-        background: colorFor(name || ""),
-        color: "#16161A",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontFamily: "'Fraunces', serif",
-        fontWeight: 600,
-        fontSize: size * 0.42,
-        flexShrink: 0,
-        border: "2px solid #16161A",
-      }}
-    >
-      {initial}
-    </div>
-  );
-
-  if (online === undefined) return content;
-
-  return (
-    <div style={{ position: "relative", width: size, height: size, flexShrink: 0 }}>
-      {content}
-      <span
-        style={{
-          position: "absolute",
-          bottom: -1,
-          right: -1,
-          width: Math.max(9, size * 0.26),
-          height: Math.max(9, size * 0.26),
-          borderRadius: "50%",
-          background: online ? "#4ADE80" : "#5C5C63",
-          border: "2px solid #16161A",
-        }}
-      />
-    </div>
-  );
-}
-
-function Logo({ size = 28 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 40 40" style={{ flexShrink: 0 }}>
-      <ellipse cx="26.5" cy="26.5" rx="6" ry="10" fill="#FF8A4C" opacity="1" transform="rotate(45 26.5 26.5)" />
-      <ellipse cx="13.5" cy="26.5" rx="6" ry="10" fill="#FF8A4C" opacity="0.8" transform="rotate(-45 13.5 26.5)" />
-      <ellipse cx="13.5" cy="13.5" rx="6" ry="10" fill="#FF8A4C" opacity="0.6" transform="rotate(45 13.5 13.5)" />
-      <ellipse cx="26.5" cy="13.5" rx="6" ry="10" fill="#FF8A4C" opacity="0.4" transform="rotate(-45 26.5 13.5)" />
-      <circle cx="20" cy="20" r="3.4" fill="#121214" />
-      <circle cx="20" cy="20" r="3.4" fill="none" stroke="#FF8A4C" strokeWidth="1.2" />
-    </svg>
-  );
 }
 
 export default function App() {

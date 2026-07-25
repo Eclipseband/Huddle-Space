@@ -31,7 +31,7 @@ export default function AIAssistant({ onClose }) {
         body: JSON.stringify({ messages: nextMessages }),
       });
       const data = await response.json();
-      const reply = data?.content?.[0]?.text || "Sorry, I couldn't get a response.";
+      const reply = data?.content?.[0]?.text || data?.error?.message || JSON.stringify(data);
       setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
     } catch (err) {
       setMessages((prev) => [...prev, { role: "assistant", content: "Something went wrong reaching the assistant." }]);

@@ -46,11 +46,11 @@ export default function PostCard({
   return (
     <div style={{ background: "#1C1C1F", border: p.pinned ? "1px solid #FF8A4C" : "1px solid #2E2E33", borderRadius: 16, padding: 18 }}>
       {p.pinned && (
-       splay: "flex", alignItems: "center", gap: 5, marginBottom: 10, fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: "#FF8A4C" }}>
+       <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 10, fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: "#FF8A4C" }}>
           <Pin size={12} /> Pinned
         </div>
       )}
-     splay: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
         <div
           onClick={() => openProfile(p.author)}
           style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 10, cursor: "pointer", width: "fit-content" }}

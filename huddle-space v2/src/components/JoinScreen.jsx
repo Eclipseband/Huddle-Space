@@ -1,7 +1,5 @@
 import { useState } from "react";
 import Logo from "./Logo";
-import { ADMIN_NAMES } from "../constants";
-
 export default function JoinScreen({ onJoin }) {
   const [nameInput, setNameInput] = useState("");
   const [pinInput, setPinInput] = useState("");
@@ -52,13 +50,13 @@ export default function JoinScreen({ onJoin }) {
           outline: "none",
         }}
       />
-      {ADMIN_NAMES.some((n) => n.toLowerCase() === nameInput.trim().toLowerCase()) && (
+     {true && (
         <input
           value={pinInput}
           onChange={(e) => setPinInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleJoin()}
           type="password"
-          placeholder="PIN"
+          placeholder="PIN (set one the first time, then enter it to log back in)"
           style={{
             width: "100%",
             boxSizing: "border-box",

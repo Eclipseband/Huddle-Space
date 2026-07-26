@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { collection, doc, setDoc, deleteDoc, addDoc } from "firebase/firestore";
 import { db } from "../firebase";
-import { PROFILE_KEY, ADMIN_NAMES, ADMIN_PIN } from "../constants";
+import { PROFILE_KEY } from "../constants";
 
 export default function useProfile() {
   const [profile, setProfile] = useState(null);
@@ -13,21 +13,31 @@ export default function useProfile() {
 
   async function joinHuddle(name, pin, members) {
     const trimmed = name.trim();
+    const pinTrimmed = (pin || "").trim();
     if (!trimmed) return { error: "" };
+
     const existing = Object.keys(members).find((n) => n.toLowerCase() === trimmed.toLowerCase());
+
     if (existing) {
-      if (ADMIN_NAMES.includes(existing) && pin !== ADMIN_PIN) {
-        return { error: "Wrong PIN for that account." };
+      const existingPin = members[existing]?.pin;
+      if (existingPin) {
+        if (pinTrimmed !== existingPin) {
+          return { error: "Wrong PIN for that account." };
+        }
+      } else if (pinTrimmed) {
+        // No PIN set yet on this account — the PIN they just typed becomes their PIN going forward
+        setDoc(doc(db, "members", existing), { pin: pinTrimmed }, { merge: true });
       }
       const newProfile = { name: existing };
       localStorage.setItem(PROFILE_KEY, JSON.stringify(newProfile));
       setProfile(newProfile);
       return { error: "" };
     }
+
     const newProfile = { name: trimmed };
     localStorage.setItem(PROFILE_KEY, JSON.stringify(newProfile));
     setProfile(newProfile);
-    setDoc(doc(db, "members", trimmed), { joinedAt: Date.now(), bio: "", following: [] });
+    setDoc(doc(db, "members", trimmed), { joinedAt: Date.now(), bio: "", following: [], pin: pinTrimmed || "" });
     Object.keys(members).forEach((n) => {
       addDoc(collection(db, "notifications"), {
         to: n,

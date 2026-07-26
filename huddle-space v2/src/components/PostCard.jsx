@@ -1,4 +1,4 @@
-import { Pin, Pencil, Flag, Trash2, Smile, MessageCircle } from "lucide-react";
+import { Pin, Pencil, Flag, Trash2, Smile, MessageCircle, Send } from "lucide-react";
 import Avatar from "./Avatar";
 import { renderWithMentions } from "../mentionsHelper";
 import { timeAgo } from "../utils";
@@ -46,11 +46,11 @@ export default function PostCard({
   return (
     <div style={{ background: "#1C1C1F", border: p.pinned ? "1px solid #FF8A4C" : "1px solid #2E2E33", borderRadius: 16, padding: 18 }}>
       {p.pinned && (
-        <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 10, fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: "#FF8A4C" }}>
+       splay: "flex", alignItems: "center", gap: 5, marginBottom: 10, fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: "#FF8A4C" }}>
           <Pin size={12} /> Pinned
         </div>
       )}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+     splay: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
         <div
           onClick={() => openProfile(p.author)}
           style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 10, cursor: "pointer", width: "fit-content" }}
@@ -64,7 +64,7 @@ export default function PostCard({
             </div>
           </div>
         </div>
-        <div style={{ display: "flex", gap: 2, flexShrink: 0 }}>
+       splay: "flex", gap: 2, flexShrink: 0 }}>
           {isAdmin && (
             <button
               onClick={() => togglePin(p.id, p.pinned)}
@@ -123,7 +123,7 @@ export default function PostCard({
               background: "#16161A", color: "#EDEDEF", fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 14, resize: "none", outline: "none",
             }}
           />
-          <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+         splay: "flex", gap: 8, marginTop: 6 }}>
             <button
               onClick={cancelEditPost}
               style={{ padding: "6px 14px", borderRadius: 999, border: "1px solid #2E2E33", background: "transparent", color: "#8B8B93", fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 12, cursor: "pointer" }}
@@ -194,7 +194,7 @@ export default function PostCard({
       )}
 
       {reactionEntries.length > 0 && (
-        <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
+       splay: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
           {reactionEntries.map(([emoji, names]) => (
             <div key={emoji} style={{ position: "relative" }}>
               <button
@@ -301,7 +301,7 @@ export default function PostCard({
               </div>
             </div>
           ))}
-          <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+         <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
             <input
               value={commentDrafts[p.id] || ""}
               onChange={(e) => setCommentDrafts((d) => ({ ...d, [p.id]: e.target.value }))}
@@ -309,6 +309,18 @@ export default function PostCard({
               placeholder="Write a comment…"
               style={{ flex: 1, padding: "8px 12px", borderRadius: 999, border: "1px solid #2E2E33", background: "#1C1C1F", fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13, outline: "none" }}
             />
+            <button
+              onClick={() => addComment(p.id, commentDrafts[p.id])}
+              disabled={!(commentDrafts[p.id] || "").trim()}
+              style={{
+                width: 36, height: 36, borderRadius: "50%", border: "none",
+                background: (commentDrafts[p.id] || "").trim() ? "#FF8A4C" : "#2E2E33",
+                color: "#16161A", display: "flex", alignItems: "center", justifyContent: "center",
+                cursor: (commentDrafts[p.id] || "").trim() ? "pointer" : "default", flexShrink: 0,
+              }}
+            >
+              <Send size={14} />
+            </button>
           </div>
         </div>
       )}

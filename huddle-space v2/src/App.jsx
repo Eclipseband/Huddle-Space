@@ -223,7 +223,12 @@ export default function App() {
         />
       )}
       {aiOpen && <AIAssistant onClose={() => setAiOpen(false)} />}
-      {gmailOpen && <GmailPanel onClose={() => setGmailOpen(false)} />}
+      {gmailOpen && (
+  <GmailPanel
+    profile={profile}
+    onClose={() => setGmailOpen(false)}
+  />
+)}
 
       {reportsApi.reportsPanelOpen && (
         <ReportsPanel

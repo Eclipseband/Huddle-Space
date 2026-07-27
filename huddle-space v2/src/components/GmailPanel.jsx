@@ -3,8 +3,6 @@ import { X, Mail, Plus, Send, RefreshCw } from "lucide-react";
 import { db } from "../firebase";
 import {
   doc,
-  getDoc,
-  setDoc,
 } from "firebase/firestore";
 
 const CLIENT_ID = "665258524178-u9lk3p2ulnkac5k9fshghcojnampavbu.apps.googleusercontent.com";
@@ -40,68 +38,6 @@ export default function GmailPanel({ profile, onClose }) {
 
   const gmailDoc = doc(db, "gmailAccounts", profile);
 
-  const handleSendEmail = async () => {
-  if (!composeTo || !composeSubject || !composeBody) return;
-
-  setSending(true);
-
-  try {
-    const accountSnap = await getDoc(gmailDoc);
-
-    if (!accountSnap.exists()) {
-      alert("No Gmail account connected.");
-      return;
-    }
-
-    const { accessToken } = accountSnap.data();
-
-    const rawMessage = [
-      `To: ${composeTo}`,
-      `Subject: ${composeSubject}`,
-      "",
-      composeBody,
-    ].join("\n");
-
-    const encodedMessage = btoa(
-      unescape(encodeURIComponent(rawMessage))
-    )
-      .replace(/\+/g, "-")
-      .replace(/\//g, "_")
-      .replace(/=+$/, "");
-
-    const response = await fetch(
-      "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          raw: encodedMessage,
-        }),
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error("Failed to send email");
-    }
-
-    alert("Email sent!");
-
-    setComposeTo("");
-    setComposeSubject("");
-    setComposeBody("");
-    setComposeOpen(false);
-
-  } catch (err) {
-    console.error(err);
-    alert("Could not send email.");
-  } finally {
-    setSending(false);
-  }
-};
-  
   useEffect(() => {
     loadGoogleScript();
   }, []);
@@ -295,7 +231,7 @@ export default function GmailPanel({ profile, onClose }) {
                   style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #2E2E33", background: "#16161A", color: "#EDEDEF", fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13, outline: "none", resize: "none" }}
                 />
                 <button
-                  onClick={handleSendEmail}
+                  onClick={sendEmail}
                   disabled={!composeTo.trim() || !composeSubject.trim() || sending}
                   style={{ alignSelf: "flex-end", display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 999, border: "none", background: composeTo.trim() ? "#FF8A4C" : "#2E2E33", color: "#16161A", fontFamily: "'IBM Plex Sans', sans-serif", fontWeight: 600, fontSize: 12, cursor: composeTo.trim() ? "pointer" : "default" }}
                 >

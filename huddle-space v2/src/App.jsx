@@ -115,6 +115,7 @@ export default function App() {
             onOpenTasks={() => setTasksOpen(true)}
             onOpenAI={() => setAiOpen(true)}
             onOpenGmail={() => setGmailOpen(true)}
+            onOpenTeam={() => setTeamOpen(true)}
             onOpenReports={() => reportsApi.setReportsPanelOpen(true)}
             onOpenDM={() => {
               dmApi.setDmWith(null);

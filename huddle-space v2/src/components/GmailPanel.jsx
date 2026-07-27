@@ -1,5 +1,11 @@
 import { useState, useEffect, useRef } from "react";
 import { X, Mail, Plus, Send, RefreshCw } from "lucide-react";
+import { db } from "../firebase";
+import {
+  doc,
+  getDoc,
+  setDoc,
+} from "firebase/firestore";
 
 const CLIENT_ID = "665258524178-u9lk3p2ulnkac5k9fshghcojnampavbu.apps.googleusercontent.com";
 const SCOPES = "https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/userinfo.email";
@@ -21,7 +27,7 @@ function b64UrlEncode(str) {
     .replace(/=+$/, "");
 }
 
-export default function GmailPanel({ onClose }) {
+export default function GmailPanel({ profile, onClose }) {
   const [accounts, setAccounts] = useState([]); // { email, token }
   const [activeEmail, setActiveEmail] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -32,6 +38,8 @@ export default function GmailPanel({ onClose }) {
   const [composeBody, setComposeBody] = useState("");
   const [sending, setSending] = useState(false);
 
+  const gmailDoc = doc(db, "gmailAccounts", profile);
+  
   useEffect(() => {
     loadGoogleScript();
   }, []);

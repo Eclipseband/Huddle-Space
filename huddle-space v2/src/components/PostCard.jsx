@@ -123,7 +123,13 @@ export default function PostCard({
               background: "#16161A", color: "#EDEDEF", fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 14, resize: "none", outline: "none",
             }}
           />
-         splay: "flex", gap: 8, marginTop: 6 }}>
+         <div
+  style={{
+    display: "flex",
+    gap: 8,
+    marginTop: 6,
+  }}
+>
             <button
               onClick={cancelEditPost}
               style={{ padding: "6px 14px", borderRadius: 999, border: "1px solid #2E2E33", background: "transparent", color: "#8B8B93", fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 12, cursor: "pointer" }}

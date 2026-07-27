@@ -3,6 +3,7 @@ import { collection, doc, addDoc, updateDoc, deleteDoc, onSnapshot } from "fireb
 import { db } from "../firebase";
 import Avatar from "./Avatar";
 import { X, Plus, Trash2 } from "lucide-react";
+import { ADMIN_NAMES } from "../constants";
 
 const STATUSES = ["To do", "In progress", "Done"];
 
@@ -10,6 +11,7 @@ export default function TasksPanel({ profile, members, memberNames, nameOf, onCl
   const [tasks, setTasks] = useState([]);
   const [title, setTitle] = useState("");
   const [assignee, setAssignee] = useState(profile.name);
+  const isAdmin = ADMIN_NAMES.includes(profile.name);
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, "tasks"), (snap) => {
@@ -50,27 +52,29 @@ export default function TasksPanel({ profile, members, memberNames, nameOf, onCl
         </button>
         <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 20, color: "#EDEDEF", marginBottom: 16 }}>Tasks</div>
 
-        <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && addTask()}
-            placeholder="New task…"
-            style={{ flex: 1, padding: "8px 12px", borderRadius: 8, border: "1px solid #2E2E33", background: "#16161A", color: "#EDEDEF", fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13, outline: "none" }}
-          />
-          <select
-            value={assignee}
-            onChange={(e) => setAssignee(e.target.value)}
-            style={{ padding: "8px 10px", borderRadius: 8, border: "1px solid #2E2E33", background: "#16161A", color: "#EDEDEF", fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13 }}
-          >
-            {memberNames.map((n) => (
-              <option key={n} value={n}>{nameOf(n)}</option>
-            ))}
-          </select>
-          <button onClick={addTask} style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: "#FF8A4C", color: "#16161A", cursor: "pointer", display: "flex", alignItems: "center" }}>
-            <Plus size={16} />
-          </button>
-        </div>
+        {isAdmin && (
+          <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+            <input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && addTask()}
+              placeholder="New task…"
+              style={{ flex: 1, padding: "8px 12px", borderRadius: 8, border: "1px solid #2E2E33", background: "#16161A", color: "#EDEDEF", fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13, outline: "none" }}
+            />
+            <select
+              value={assignee}
+              onChange={(e) => setAssignee(e.target.value)}
+              style={{ padding: "8px 10px", borderRadius: 8, border: "1px solid #2E2E33", background: "#16161A", color: "#EDEDEF", fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13 }}
+            >
+              {memberNames.map((n) => (
+                <option key={n} value={n}>{nameOf(n)}</option>
+              ))}
+            </select>
+            <button onClick={addTask} style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: "#FF8A4C", color: "#16161A", cursor: "pointer", display: "flex", alignItems: "center" }}>
+              <Plus size={16} />
+            </button>
+          </div>
+        )}
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
           {STATUSES.map((status) => (
@@ -85,14 +89,16 @@ export default function TasksPanel({ profile, members, memberNames, nameOf, onCl
                         <Avatar name={t.assignee} size={20} photoURL={members[t.assignee]?.photoURL} />
                         <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: "#8B8B93" }}>{nameOf(t.assignee)}</span>
                       </div>
-                      <div style={{ display: "flex", gap: 4 }}>
-                        <button onClick={() => cycleStatus(t)} title="Move to next status" style={{ background: "none", border: "1px solid #2E2E33", borderRadius: 6, color: "#8B8B93", fontSize: 10, padding: "2px 6px", cursor: "pointer" }}>
-                          →
-                        </button>
-                        <button onClick={() => removeTask(t.id)} style={{ background: "none", border: "none", color: "#5C5C63", cursor: "pointer", display: "flex" }}>
-                          <Trash2 size={12} />
-                        </button>
-                      </div>
+                      {isAdmin && (
+                        <div style={{ display: "flex", gap: 4 }}>
+                          <button onClick={() => cycleStatus(t)} title="Move to next status" style={{ background: "none", border: "1px solid #2E2E33", borderRadius: 6, color: "#8B8B93", fontSize: 10, padding: "2px 6px", cursor: "pointer" }}>
+                            →
+                          </button>
+                          <button onClick={() => removeTask(t.id)} style={{ background: "none", border: "none", color: "#5C5C63", cursor: "pointer", display: "flex" }}>
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}

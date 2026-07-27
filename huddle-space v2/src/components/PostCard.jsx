@@ -3,6 +3,7 @@ import Avatar from "./Avatar";
 import { renderWithMentions } from "../mentionsHelper";
 import { timeAgo } from "../utils";
 import { ADMIN_NAMES, REACTIONS } from "../constants";
+import { useState } from "react";
 
 export default function PostCard({
   post: p,
@@ -34,6 +35,7 @@ export default function PostCard({
   commentDrafts,
   setCommentDrafts,
   addComment,
+  const [pollVotersOpenIndex, setPollVotersOpenIndex] = useState(null);
 }) {
   const isAdmin = ADMIN_NAMES.includes(profile.name);
   const reactions = p.reactions || {};
@@ -163,29 +165,69 @@ export default function PostCard({
             {p.poll.question}
           </div>
           {(() => {
-            const totalVotes = p.poll.options.reduce((sum, o) => sum + (o.votes?.length || 0), 0);
-            return p.poll.options.map((opt, i) => {
-              const voteCount = opt.votes?.length || 0;
-              const pct = totalVotes > 0 ? Math.round((voteCount / totalVotes) * 100) : 0;
-              const iVoted = (opt.votes || []).includes(profile.name);
-              return (
-                <div
-                  key={i}
-                  onClick={() => votePoll(p.id, i)}
+  const totalVotes = p.poll.options.reduce((sum, o) => sum + (o.votes?.length || 0), 0);
+  return p.poll.options.map((opt, i) => {
+    const voteCount = opt.votes?.length || 0;
+    const pct = totalVotes > 0 ? Math.round((voteCount / totalVotes) * 100) : 0;
+    const iVoted = (opt.votes || []).includes(profile.name);
+    const votersOpen = pollVotersOpenIndex === i;
+    return (
+      <div key={i} style={{ marginBottom: 6 }}>
+        <div
+          onClick={() => votePoll(p.id, i)}
+          style={{
+            position: "relative", border: iVoted ? "1px solid #FF8A4C" : "1px solid #2E2E33",
+            borderRadius: 8, padding: "8px 10px", cursor: "pointer", overflow: "hidden",
+          }}
+        >
+          <div style={{ position: "absolute", inset: 0, width: `${pct}%`, background: "rgba(255,138,76,0.14)" }} />
+          <div style={{ position: "relative", display: "flex", justifyContent: "space-between", alignItems: "center", fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13, color: "#EDEDEF" }}>
+            <span>{opt.text}</span>
+            <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              {voteCount > 0 && (
+                <span
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setPollVotersOpenIndex(votersOpen ? null : i);
+                  }}
                   style={{
-                    position: "relative", border: iVoted ? "1px solid #FF8A4C" : "1px solid #2E2E33",
-                    borderRadius: 8, padding: "8px 10px", marginBottom: 6, cursor: "pointer", overflow: "hidden",
+                    fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: "#8B8B93",
+                    textDecoration: "underline", cursor: "pointer",
                   }}
                 >
-                  <div style={{ position: "absolute", inset: 0, width: `${pct}%`, background: "rgba(255,138,76,0.14)" }} />
-                  <div style={{ position: "relative", display: "flex", justifyContent: "space-between", fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13, color: "#EDEDEF" }}>
-                    <span>{opt.text}</span>
-                    <span style={{ color: "#8B8B93", fontFamily: "'IBM Plex Mono', monospace", fontSize: 11 }}>{pct}%</span>
-                  </div>
-                </div>
-              );
-            });
-          })()}
+                  {voteCount} vote{voteCount === 1 ? "" : "s"}
+                </span>
+              )}
+              <span style={{ color: "#8B8B93", fontFamily: "'IBM Plex Mono', monospace", fontSize: 11 }}>{pct}%</span>
+            </span>
+          </div>
+        </div>
+        {votersOpen && voteCount > 0 && (
+          <div
+            style={{
+              marginTop: 4, background: "#16161A", border: "1px solid #2E2E33", borderRadius: 8,
+              padding: "6px 10px", fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 12, color: "#EDEDEF",
+            }}
+          >
+            {opt.votes.map((n) => (
+              <div
+                key={n}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setPollVotersOpenIndex(null);
+                  openProfile(n);
+                }}
+                style={{ cursor: "pointer", padding: "2px 0" }}
+              >
+                {nameOf(n)}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  });
+})()}
           <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: "#8B8B93", marginTop: 2 }}>
             {p.poll.options.reduce((sum, o) => sum + (o.votes?.length || 0), 0)} votes
           </div>

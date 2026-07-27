@@ -76,23 +76,23 @@ export default function Header({
               />
             )}
           </button>
-         {notifPanelOpen && (
-  <div
-    style={{
-      position: "fixed",
-      top: 64,
-      right: 12,
-      left: "auto",
-      width: 300,
-      maxWidth: "92vw",
-      maxHeight: 380,
-      overflowY: "auto",
-      background: "#1C1C1F",
-      border: "1px solid #2E2E33",
-      borderRadius: 14,
-      boxShadow: "0 8px 24px rgba(43,42,40,0.15)",
-      zIndex: 70,
-    }}
+          {notifPanelOpen && (
+            <div
+              style={{
+                position: "fixed",
+                top: 64,
+                right: 12,
+                left: "auto",
+                width: 300,
+                maxWidth: "92vw",
+                maxHeight: 380,
+                overflowY: "auto",
+                background: "#1C1C1F",
+                border: "1px solid #2E2E33",
+                borderRadius: 14,
+                boxShadow: "0 8px 24px rgba(43,42,40,0.15)",
+                zIndex: 70,
+              }}
             >
               {notifications.length === 0 ? (
                 <div style={{ padding: 20, textAlign: "center", color: "#8B8B93", fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13 }}>

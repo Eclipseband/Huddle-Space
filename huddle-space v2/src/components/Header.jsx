@@ -145,7 +145,7 @@ export default function Header({
           📧
         </button>
         <button
-          onClick={onOpenTeam}
+          onClick={() => { alert("button works"); onOpenTeam(); }}
           title="Team Members"
           className="hs-icon-btn"
           style={{ background: "none", border: "none", cursor: "pointer", color: "#8B8B93", width: 38, height: 38, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }}

@@ -5,6 +5,7 @@ import usePosts from "./hooks/usePosts";
 import useNotifications from "./hooks/useNotifications";
 import useDirectMessages from "./hooks/useDirectMessages";
 import useReports from "./hooks/useReports";
+import TeamMembersPanel from "./components/TeamMembersPanel";
 
 import Wrap from "./components/Wrap";
 import JoinScreen from "./components/JoinScreen";
@@ -35,6 +36,7 @@ export default function App() {
   const [tasksOpen, setTasksOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
   const [gmailOpen, setGmailOpen] = useState(false);
+  const [teamOpen, setTeamOpen] = useState(false);
 
   function openProfile(name) {
     if (!name) return;
@@ -226,7 +228,18 @@ export default function App() {
      {gmailOpen && (
   <GmailPanel profile={profile.name} onClose={() => setGmailOpen(false)} />
 )}
-
+{teamOpen && (
+  <TeamMembersPanel
+    profile={profile}
+    members={membersApi.members}
+    memberNames={membersApi.memberNames}
+    isOnline={membersApi.isOnline}
+    nameOf={membersApi.nameOf}
+    saveRoleAndTeam={membersApi.saveRoleAndTeam}
+    openProfile={openProfile}
+    onClose={() => setTeamOpen(false)}
+  />
+)}
       {reportsApi.reportsPanelOpen && (
         <ReportsPanel
           onClose={() => reportsApi.setReportsPanelOpen(false)}

@@ -14,9 +14,10 @@ export default function Header({
   onNotifClick,
   reports,
   posts,
-  onOpenTasks,
+ onOpenTasks,
   onOpenAI,
   onOpenGmail,
+  onOpenTeam,
   onOpenReports,
   onOpenDM,
 }) {
@@ -142,6 +143,14 @@ export default function Header({
           style={{ background: "none", border: "none", cursor: "pointer", color: "#8B8B93", width: 38, height: 38, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }}
         >
           📧
+        </button>
+        <button
+          onClick={onOpenTeam}
+          title="Team Members"
+          className="hs-icon-btn"
+          style={{ background: "none", border: "none", cursor: "pointer", color: "#8B8B93", width: 38, height: 38, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }}
+        >
+          👥
         </button>
         {isAdmin && (
           <div style={{ position: "relative" }}>

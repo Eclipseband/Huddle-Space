@@ -64,7 +64,7 @@ export default function PostCard({
             </div>
           </div>
         </div>
-       splay: "flex", gap: 2, flexShrink: 0 }}>
+       <div style={{ display: "flex", gap: 2, flexShrink: 0 }}>
           {isAdmin && (
             <button
               onClick={() => togglePin(p.id, p.pinned)}

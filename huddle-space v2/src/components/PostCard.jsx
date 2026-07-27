@@ -349,14 +349,19 @@ export default function PostCard({
 
       {commentsOpen && (
         <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
-          {p.comments.map((c, i) => (
-            <div key={i} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-              <Avatar name={c.author} size={26} photoURL={members[c.author]?.photoURL} />
-              <div style={{ background: "#1C1C1F", borderRadius: 12, padding: "6px 12px", fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13, color: "#EDEDEF" }}>
-                <span style={{ fontWeight: 600 }}>{nameOf(c.author)}</span> {renderWithMentions(c.text, memberNames, openProfile)}
-              </div>
-            </div>
-          ))}
+         {p.comments.map((c, i) => (
+  <div key={i} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+    <Avatar name={c.author} size={26} photoURL={members[c.author]?.photoURL} />
+    <div style={{ display: "flex", flexDirection: "column" }}>
+      <div style={{ background: "#1C1C1F", borderRadius: 12, padding: "6px 12px", fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13, color: "#EDEDEF" }}>
+        <span style={{ fontWeight: 600 }}>{nameOf(c.author)}</span> {renderWithMentions(c.text, memberNames, openProfile)}
+      </div>
+      <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: "#5C5C63", marginTop: 2, padding: "0 4px" }}>
+        {timeAgo(c.timestamp)}
+      </div>
+    </div>
+  </div>
+))}
          <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
             <input
               value={commentDrafts[p.id] || ""}

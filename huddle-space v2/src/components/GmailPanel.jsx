@@ -36,7 +36,6 @@ export default function GmailPanel({ profile, onClose }) {
   const [composeBody, setComposeBody] = useState("");
   const [sending, setSending] = useState(false);
 
-  console.log("PROFILE:", profile, typeof profile);
   const gmailDoc = doc(db, "gmailAccounts", profile);
 
   useEffect(() => {

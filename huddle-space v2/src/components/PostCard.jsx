@@ -35,8 +35,9 @@ export default function PostCard({
   commentDrafts,
   setCommentDrafts,
   addComment,
-  const [pollVotersOpenIndex, setPollVotersOpenIndex] = useState(null);
+  
 }) {
+ const [pollVotersOpenIndex, setPollVotersOpenIndex] = useState(null);
   const isAdmin = ADMIN_NAMES.includes(profile.name);
   const reactions = p.reactions || {};
   const reactionEntries = Object.entries(reactions).filter(([, names]) => names.length > 0);

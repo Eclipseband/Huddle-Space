@@ -111,8 +111,11 @@ export default function useMembers(profile) {
     await setDoc(doc(db, "members", profile.name), { displayName: newName.trim() }, { merge: true });
     return { error: null };
   }
+  async function saveRoleAndTeam(name, role, team) {
+    await setDoc(doc(db, "members", name), { role: role.trim(), team: team.trim() }, { merge: true });
+  }
 
-  return {
+ return {
     members,
     memberNames: Object.keys(members),
     isOnline,
@@ -122,5 +125,6 @@ export default function useMembers(profile) {
     avatarUploading,
     saveBio,
     saveDisplayName,
+    saveRoleAndTeam,
   };
 }

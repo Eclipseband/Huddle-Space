@@ -199,8 +199,15 @@ export default function PostCard({
         <video src={p.videoUrl} controls style={{ width: "100%", borderRadius: 12, marginBottom: 10, display: "block" }} />
       )}
 
-      {reactionEntries.length > 0 && (
-       splay: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
+     {reactionEntries.length > 0 && (
+  <div
+    style={{
+      display: "flex",
+      gap: 6,
+      marginTop: 6,
+      flexWrap: "wrap",
+    }}
+  >
           {reactionEntries.map(([emoji, names]) => (
             <div key={emoji} style={{ position: "relative" }}>
               <button

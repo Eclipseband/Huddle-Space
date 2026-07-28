@@ -154,21 +154,23 @@ export default function Header({
         >
           👥
         </button>
-        <button
-          onClick={onOpenMindMap}
-          title="Mind Maps"
-          className="hs-icon-btn"
-          style={{ background: "none", border: "none", cursor: "pointer", color: "#8B8B93", width: 38, height: 38, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }}
-        >
-          🧠
-          <button
-        onClick={onOpenCalendar}
-        title="Calendar"
-        className="hs-icon-btn"
-        style={{ background: "none", border: "none", cursor: "pointer", color: "#8B8B93", width: 38, height: 38, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }}
-        >
-        📅
-      </button>
+       <button
+  onClick={onOpenMindMap}
+  title="Mind Maps"
+  className="hs-icon-btn"
+  style={{ background: "none", border: "none", cursor: "pointer", color: "#8B8B93", width: 38, height: 38, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }}
+>
+  🧠
+</button>
+
+<button
+  onClick={onOpenCalendar}
+  title="Calendar"
+  className="hs-icon-btn"
+  style={{ background: "none", border: "none", cursor: "pointer", color: "#8B8B93", width: 38, height: 38, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", marginLeft: 10 }}
+>
+  📅
+</button>
         </button>
         {isAdmin && (
           <div style={{ position: "relative" }}>

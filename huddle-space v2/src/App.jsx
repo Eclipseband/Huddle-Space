@@ -20,7 +20,6 @@ import ReportsPanel from "./components/ReportsPanel";
 import TasksPanel from "./components/TasksPanel";
 import AIAssistant from "./components/AIAssistant";
 import GmailPanel from "./components/GmailPanel";
-import GmailPanel from "./components/GmailPanel";
 import MindMapPanel from "./components/MindMapPanel";
 
 export default function App() {
@@ -38,7 +37,6 @@ export default function App() {
   const [tasksOpen, setTasksOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
   const [gmailOpen, setGmailOpen] = useState(false);
-  const [teamOpen, setTeamOpen] = useState(false);
   const [teamOpen, setTeamOpen] = useState(false);
   const [mindMapOpen, setMindMapOpen] = useState(false);
 
@@ -119,9 +117,8 @@ export default function App() {
             onOpenTasks={() => setTasksOpen(true)}
             onOpenAI={() => setAiOpen(true)}
             onOpenGmail={() => setGmailOpen(true)}
-            onOpenGmail={() => setGmailOpen(true)}
-            onOpenMindMap={() => setMindMapOpen(true)}
             onOpenTeam={() => setTeamOpen(true)}
+            onOpenMindMap={() => setMindMapOpen(true)}
             onOpenReports={() => reportsApi.setReportsPanelOpen(true)}
             onOpenDM={() => {
               dmApi.setDmWith(null);
@@ -232,22 +229,22 @@ export default function App() {
         />
       )}
       {aiOpen && <AIAssistant onClose={() => setAiOpen(false)} />}
-     {gmailOpen && (
-  <GmailPanel profile={profile.name} onClose={() => setGmailOpen(false)} />
+      {gmailOpen && (
+        <GmailPanel profile={profile.name} onClose={() => setGmailOpen(false)} />
+      )}
       {mindMapOpen && <MindMapPanel onClose={() => setMindMapOpen(false)} profile={profile} />}
-)}
-{teamOpen && (
-  <TeamMembersPanel
-    profile={profile}
-    members={membersApi.members}
-    memberNames={membersApi.memberNames}
-    isOnline={membersApi.isOnline}
-    nameOf={membersApi.nameOf}
-    saveRoleAndTeam={membersApi.saveRoleAndTeam}
-    openProfile={openProfile}
-    onClose={() => setTeamOpen(false)}
-  />
-)}
+      {teamOpen && (
+        <TeamMembersPanel
+          profile={profile}
+          members={membersApi.members}
+          memberNames={membersApi.memberNames}
+          isOnline={membersApi.isOnline}
+          nameOf={membersApi.nameOf}
+          saveRoleAndTeam={membersApi.saveRoleAndTeam}
+          openProfile={openProfile}
+          onClose={() => setTeamOpen(false)}
+        />
+      )}
       {reportsApi.reportsPanelOpen && (
         <ReportsPanel
           onClose={() => reportsApi.setReportsPanelOpen(false)}

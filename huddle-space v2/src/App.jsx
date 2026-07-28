@@ -6,6 +6,7 @@ import useNotifications from "./hooks/useNotifications";
 import useDirectMessages from "./hooks/useDirectMessages";
 import useReports from "./hooks/useReports";
 import TeamMembersPanel from "./components/TeamMembersPanel";
+import CalendarPanel from "./components/CalendarPanel";
 
 import Wrap from "./components/Wrap";
 import JoinScreen from "./components/JoinScreen";
@@ -39,6 +40,7 @@ export default function App() {
   const [gmailOpen, setGmailOpen] = useState(false);
   const [teamOpen, setTeamOpen] = useState(false);
   const [mindMapOpen, setMindMapOpen] = useState(false);
+  const [calendarOpen, setCalendarOpen] = useState(false);
 
   function openProfile(name) {
     if (!name) return;
@@ -119,6 +121,7 @@ export default function App() {
             onOpenGmail={() => setGmailOpen(true)}
             onOpenTeam={() => setTeamOpen(true)}
             onOpenMindMap={() => setMindMapOpen(true)}
+            onOpenCalendar={() => setCalendarOpen(true)}
             onOpenReports={() => reportsApi.setReportsPanelOpen(true)}
             onOpenDM={() => {
               dmApi.setDmWith(null);
@@ -233,6 +236,7 @@ export default function App() {
         <GmailPanel profile={profile.name} onClose={() => setGmailOpen(false)} />
       )}
       {mindMapOpen && <MindMapPanel onClose={() => setMindMapOpen(false)} profile={profile} />}
+      {calendarOpen && <CalendarPanel onClose={() => setCalendarOpen(false)} profile={profile} memberNames={membersApi.memberNames} />}
       {teamOpen && (
         <TeamMembersPanel
           profile={profile}

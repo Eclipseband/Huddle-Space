@@ -171,7 +171,6 @@ export default function Header({
 >
   📅
 </button>
-        </button>
         {isAdmin && (
           <div style={{ position: "relative" }}>
             <button

@@ -7,6 +7,7 @@ import useDirectMessages from "./hooks/useDirectMessages";
 import useReports from "./hooks/useReports";
 import TeamMembersPanel from "./components/TeamMembersPanel";
 import CalendarPanel from "./components/CalendarPanel";
+import ProjectsPanel from "./components/ProjectsPanel";
 
 import Wrap from "./components/Wrap";
 import JoinScreen from "./components/JoinScreen";
@@ -41,6 +42,7 @@ export default function App() {
   const [teamOpen, setTeamOpen] = useState(false);
   const [mindMapOpen, setMindMapOpen] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const [projectsOpen, setProjectsOpen] = useState(false);
 
   function openProfile(name) {
     if (!name) return;
@@ -122,6 +124,7 @@ export default function App() {
             onOpenTeam={() => setTeamOpen(true)}
             onOpenMindMap={() => setMindMapOpen(true)}
             onOpenCalendar={() => setCalendarOpen(true)}
+            onOpenProjects={() => setProjectsOpen(true)}
             onOpenReports={() => reportsApi.setReportsPanelOpen(true)}
             onOpenDM={() => {
               dmApi.setDmWith(null);
@@ -232,9 +235,9 @@ export default function App() {
         />
       )}
       {aiOpen && <AIAssistant onClose={() => setAiOpen(false)} />}
-      {gmailOpen && (
-        <GmailPanel profile={profile.name} onClose={() => setGmailOpen(false)} />
-      )}
+     {gmailOpen && (
+  <GmailPanel profile={profile} onClose={() => setGmailOpen(false)} />
+)}
       {mindMapOpen && <MindMapPanel onClose={() => setMindMapOpen(false)} profile={profile} />}
       {calendarOpen && <CalendarPanel onClose={() => setCalendarOpen(false)} profile={profile} memberNames={membersApi.memberNames} />}
       {teamOpen && (
@@ -247,6 +250,17 @@ export default function App() {
           saveRoleAndTeam={membersApi.saveRoleAndTeam}
           openProfile={openProfile}
           onClose={() => setTeamOpen(false)}
+        />
+      )}
+     {projectsOpen && (
+        <ProjectsPanel
+          onClose={() => setProjectsOpen(false)}
+          profile={profile}
+          members={membersApi.members}
+          memberNames={membersApi.memberNames}
+          isOnline={membersApi.isOnline}
+          nameOf={membersApi.nameOf}
+          openProfile={openProfile}
         />
       )}
       {reportsApi.reportsPanelOpen && (
